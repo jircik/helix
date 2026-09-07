@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Lead, Stage } from '@/lib/db/schema';
 import { apiGet, apiSend, apiAllLeads } from '@/lib/api/client';
-import Link from 'next/link';
 import { groupByStage } from '@/lib/pipeline/group';
+import { LeadModal } from '@/components/leads/LeadModal';
+import { useLeadDetail } from '@/components/leads/useLeadDetail';
 import { TemperatureBadge } from '@/components/ui/TemperatureBadge';
 import { Select } from '@/components/ui/Select';
 
@@ -30,6 +31,8 @@ export function PipelineView() {
   }, []);
 
   useEffect(() => { void carregar(); }, [carregar]);
+
+  const detalhe = useLeadDetail(carregar);
 
   async function soltar(stageId: number) {
     if (dragging === null) return;
@@ -58,7 +61,7 @@ export function PipelineView() {
       <p className="page-description">Arraste os leads entre etapas ou use o seletor em cada card.</p>
       {loading && <p className="empty">Carregando pipeline…</p>}
 
-      {erro && <p className="error" style={{ marginTop: 16 }}>{erro}</p>}
+      {(erro || detalhe.erro) && <p role="alert" className="error" style={{ marginTop: 16 }}>{erro ?? detalhe.erro}</p>}
 
       <div className="kanban" style={{
         marginTop: 24, display: 'grid', gap: 16,
@@ -88,18 +91,19 @@ export function PipelineView() {
                   onDragEnd={() => setDragging(null)}
                   style={{
                     padding: 12, border: '1px solid var(--line)',
-                    background: 'var(--paper)', cursor: 'grab',
+                    background: 'var(--bg)', cursor: 'grab',
                     opacity: dragging === lead.id ? 0.4 : 1,
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                    <Link href={'/leads?leadId=' + lead.id}><strong style={{ fontSize: 12 }}>{lead.name}</strong></Link>
+                    <button type="button" className="pipeline-card-open"
+                      onClick={() => detalhe.open(lead.id)}>{lead.name}</button>
                     <TemperatureBadge temperature={lead.temperature} />
                   </div>
                   <label className="field" style={{ marginTop: 12 }}><span className="mono">Mover para</span>
                     <Select aria-label={'Etapa de ' + lead.name} value={lead.stageId ?? stages[0]?.id ?? ''} disabled={moving}
                       onValueChange={(value) => void mover(lead.id, Number(value))} options={stages.map((stage) => ({ value: stage.id, label: stage.name }))} /></label>
-                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
                     {lead.primaryTypeDisplay ?? '—'} · {lead.phone ?? 'sem telefone'}
                   </div>
                 </article>
@@ -109,6 +113,19 @@ export function PipelineView() {
           </section>
         ))}
       </div>
+
+      {detalhe.openId !== null && detalhe.detail && (
+        <LeadModal
+          key={detalhe.detail.lead.id + ':' + detalhe.detail.lead.updatedAt}
+          lead={detalhe.detail.lead}
+          activities={detalhe.detail.activities}
+          stages={stages}
+          onPatch={detalhe.patch}
+          onMoveStage={detalhe.moveStage}
+          onAddActivity={detalhe.addActivity}
+          onClose={detalhe.close}
+        />
+      )}
     </div>
   );
 }

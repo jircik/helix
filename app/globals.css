@@ -500,3 +500,5 @@ tr:focus-visible .row-action, .row-action:focus-visible { color: var(--text); bo
 .theme-preview[data-preview="sistema"] .theme-preview-body { background: linear-gradient(105deg, #fbfbf9 50%, #0b0b0a 50%); }
 .theme-preview[data-preview="sistema"] .theme-preview-bar { background: linear-gradient(105deg, #0a0a0a 50%, #f2f2ec 50%); }
 .theme-preview[data-preview="sistema"] .theme-preview-line { background: linear-gradient(105deg, #d8d8d2 50%, #3a3a35 50%); }
+.pipeline-card-open { padding: 0; border: 0; background: transparent; color: var(--text); font-size: 12px; font-weight: 500; text-align: left; }
+.pipeline-card-open:hover { text-decoration: underline; }

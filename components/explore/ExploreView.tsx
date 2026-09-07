@@ -1,13 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { Activity, ActivityKind, Lead, Search, Stage } from '@/lib/db/schema';
-import type { UserBlockPatch } from '@/lib/repo/leads';
+import type { Lead, Search, Stage } from '@/lib/db/schema';
 import type { RunSearchInput, RunSearchResult } from '@/lib/services/run-search';
 import { apiGet, apiSend } from '@/lib/api/client';
 import { FilterButton, FILTROS_PADRAO, describeFilters, type FilterValues } from '@/components/leads/FilterDialog';
 import { LeadCard } from '@/components/leads/LeadCard';
 import { LeadModal } from '@/components/leads/LeadModal';
+import { useLeadDetail } from '@/components/leads/useLeadDetail';
 import { LeadMap } from '@/components/map/LeadMap';
 import { ResultsDrawer } from './ResultsDrawer';
 import { SearchForm } from './SearchForm';
@@ -32,8 +32,6 @@ export function ExploreView() {
   const [running, setRunning] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  const [openId, setOpenId] = useState<number | null>(null);
-  const [detail, setDetail] = useState<{ lead: Lead; activities: Activity[] } | null>(null);
   const [revision, setRevision] = useState(0);
 
   const { selectedId, select, center } = useSelection(rows);
@@ -77,18 +75,9 @@ export function ExploreView() {
     return () => { active = false; };
   }, [query, requestKey, pickerReady]);
 
-  const carregarDetalhe = useCallback(async (id: number) => {
-    setDetail(await apiGet<{ lead: Lead; activities: Activity[] }>('/api/leads/' + id));
-  }, []);
-
-  useEffect(() => {
-    if (openId === null) return;
-    let active = true;
-    apiGet<{ lead: Lead; activities: Activity[] }>('/api/leads/' + openId)
-      .then((out) => { if (active) setDetail(out); })
-      .catch((e: Error) => { if (active) setErro(e.message); });
-    return () => { active = false; };
-  }, [openId, revision]);
+  const detalhe = useLeadDetail(useCallback(() => {
+    setRevision((value) => value + 1);
+  }, []));
 
   async function buscar(input: RunSearchInput) {
     setRunning(true);
@@ -107,24 +96,7 @@ export function ExploreView() {
     }
   }
 
-  async function patch(body: UserBlockPatch) {
-    if (openId === null) return;
-    await apiSend('/api/leads/' + openId, 'PATCH', body);
-    setRevision((value) => value + 1);
-  }
-  async function moveStage(stageId: number) {
-    if (openId === null) return;
-    await apiSend('/api/leads/' + openId + '/stage', 'PUT', { stageId });
-    setRevision((value) => value + 1);
-  }
-  async function addActivity(input: { kind: ActivityKind; body: string }) {
-    if (openId === null) return;
-    await apiSend('/api/leads/' + openId + '/activities', 'POST', input);
-    await carregarDetalhe(openId);
-  }
-
   const filterButton = <FilterButton values={filters} stages={stages} onApply={setFilters} />;
-  const shownDetail = detail?.lead.id === openId ? detail : null;
   const loading = !pickerReady || loadedKey !== requestKey;
   const vazio = searchId
     ? 'Essa busca não devolveu nada com estes filtros.'
@@ -162,7 +134,7 @@ export function ExploreView() {
         )}
       </div>
 
-      {erro && <p role="alert" className="error">{erro}</p>}
+      {(erro || detalhe.erro) && <p role="alert" className="error">{erro ?? detalhe.erro}</p>}
 
       {resumo && (
         <p className="mono explore-summary">
@@ -177,7 +149,7 @@ export function ExploreView() {
             rows={rows}
             selectedId={selectedId}
             onSelect={select}
-            onOpen={setOpenId}
+            onOpen={detalhe.open}
             toolbar={filterButton}
             emptyMessage={loading ? 'Carregando…' : vazio}
           />
@@ -200,7 +172,7 @@ export function ExploreView() {
                   lead={row}
                   selected={row.id === selectedId}
                   onSelect={select}
-                  onOpen={setOpenId}
+                  onOpen={detalhe.open}
                 />
               ))}
             </div>
@@ -208,16 +180,16 @@ export function ExploreView() {
         </div>
       )}
 
-      {openId !== null && shownDetail && (
+      {detalhe.openId !== null && detalhe.detail && (
         <LeadModal
-          key={shownDetail.lead.id + ':' + shownDetail.lead.updatedAt}
-          lead={shownDetail.lead}
-          activities={shownDetail.activities}
+          key={detalhe.detail.lead.id + ':' + detalhe.detail.lead.updatedAt}
+          lead={detalhe.detail.lead}
+          activities={detalhe.detail.activities}
           stages={stages}
-          onPatch={patch}
-          onMoveStage={moveStage}
-          onAddActivity={addActivity}
-          onClose={() => setOpenId(null)}
+          onPatch={detalhe.patch}
+          onMoveStage={detalhe.moveStage}
+          onAddActivity={detalhe.addActivity}
+          onClose={detalhe.close}
         />
       )}
     </div>

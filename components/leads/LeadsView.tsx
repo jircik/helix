@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import type { Activity, ActivityKind, Lead, Stage, Temperature } from '@/lib/db/schema';
-import type { UserBlockPatch } from '@/lib/repo/leads';
-import { apiGet, apiSend } from '@/lib/api/client';
+import { useCallback, useEffect, useState } from 'react';
+import type { Lead, Stage, Temperature } from '@/lib/db/schema';
+import { apiGet } from '@/lib/api/client';
 import { LeadTable } from './LeadTable';
 import { LeadModal } from './LeadModal';
+import { useLeadDetail } from './useLeadDetail';
 import { LeadFilters } from './LeadFilters';
 
 export function LeadsView({ initialLeadId = null }: { initialLeadId?: number | null }) {
@@ -17,8 +17,6 @@ export function LeadsView({ initialLeadId = null }: { initialLeadId?: number | n
   const [rows, setRows] = useState<Lead[]>([]);
   const [total, setTotal] = useState(0);
   const [stages, setStages] = useState<Stage[]>([]);
-  const [selectedId, setSelectedId] = useState<number | null>(initialLeadId);
-  const [detail, setDetail] = useState<{ lead: Lead; activities: Activity[] } | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
   const [loadedQuery, setLoadedQuery] = useState('');
@@ -50,32 +48,11 @@ export function LeadsView({ initialLeadId = null }: { initialLeadId?: number | n
     return () => { active = false; };
   }, []);
 
-  useEffect(() => {
-    if (selectedId === null) return;
-    let active = true;
-    apiGet<{ lead: Lead; activities: Activity[] }>('/api/leads/' + selectedId)
-      .then((out) => { if (active) setDetail(out); })
-      .catch((e: Error) => { if (active) setErro(e.message); });
-    return () => { active = false; };
-  }, [selectedId, revision]);
-
-  async function patch(body: UserBlockPatch) {
-    if (selectedId === null) return;
-    await apiSend('/api/leads/' + selectedId, 'PATCH', body);
+  const detalhe = useLeadDetail(useCallback(() => {
     setRevision((value) => value + 1);
-  }
-  async function moveStage(stageId: number) {
-    if (selectedId === null) return;
-    await apiSend('/api/leads/' + selectedId + '/stage', 'PUT', { stageId });
-    setRevision((value) => value + 1);
-  }
-  async function addActivity(input: { kind: ActivityKind; body: string }) {
-    if (selectedId === null) return;
-    await apiSend('/api/leads/' + selectedId + '/activities', 'POST', input);
-    setRevision((value) => value + 1);
-  }
+  }, []), initialLeadId);
+  const selectedId = detalhe.openId;
   function changeFilters(action: () => void) { action(); setOffset(0); }
-  const shownDetail = detail?.lead.id === selectedId ? detail : null;
   const loading = loadedQuery !== requestKey;
 
   return (
@@ -83,7 +60,7 @@ export function LeadsView({ initialLeadId = null }: { initialLeadId?: number | n
       <div className="page-heading"><div><span className="mono">Base comercial</span><h1>Leads</h1></div>
         <a className="btn btn-outline" href={'/api/leads/export?' + query}>Exportar CSV</a>
       </div>
-      {erro && <p role="alert" className="error">{erro}</p>}
+      {(erro || detalhe.erro) && <p role="alert" className="error">{erro ?? detalhe.erro}</p>}
       <LeadFilters temperatures={temperatures} incluirDescartados={incluirDescartados}
         busca={busca} stageId={stageId} stages={stages}
         onTemperatures={(value) => changeFilters(() => setTemperatures(value))}
@@ -94,7 +71,7 @@ export function LeadsView({ initialLeadId = null }: { initialLeadId?: number | n
         <div>
           <div className="panel table-scroll" aria-busy={loading}>
             {loading ? <p className="empty">Carregando leads…</p> :
-              <LeadTable rows={rows} selectedId={selectedId} onSelect={setSelectedId} />}
+              <LeadTable rows={rows} selectedId={selectedId} onSelect={detalhe.open} />}
           </div>
           <div className="pagination">
             <span className="mono">{total} leads · página {Math.floor(offset / 50) + 1}</span>
@@ -103,16 +80,16 @@ export function LeadsView({ initialLeadId = null }: { initialLeadId?: number | n
           </div>
         </div>
       </div>
-      {selectedId !== null && shownDetail && (
+      {detalhe.openId !== null && detalhe.detail && (
         <LeadModal
-          key={shownDetail.lead.id + ':' + shownDetail.lead.updatedAt}
-          lead={shownDetail.lead}
-          activities={shownDetail.activities}
+          key={detalhe.detail.lead.id + ':' + detalhe.detail.lead.updatedAt}
+          lead={detalhe.detail.lead}
+          activities={detalhe.detail.activities}
           stages={stages}
-          onPatch={patch}
-          onMoveStage={moveStage}
-          onAddActivity={addActivity}
-          onClose={() => setSelectedId(null)}
+          onPatch={detalhe.patch}
+          onMoveStage={detalhe.moveStage}
+          onAddActivity={detalhe.addActivity}
+          onClose={detalhe.close}
         />
       )}
     </div>

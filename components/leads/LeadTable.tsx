@@ -41,7 +41,7 @@ export function LeadTable({ rows, selectedId, onSelect }: Props) {
             <td>
               <strong>{row.name}</strong>
               <br />
-              <small style={{ color: 'var(--muted)' }}>
+              <small style={{ color: 'var(--text-muted)' }}>
                 {row.formattedAddress ?? '—'}
               </small>
             </td>
