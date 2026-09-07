@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-const SECTIONS = [{ href: '/configuracoes', label: 'Geral' }, { href: '/configuracoes/etapa', label: 'Etapas do funil' }];
+const SECTIONS = [{ href: '/configuracoes', label: 'Geral' }, { href: '/configuracoes/etapa', label: 'Etapas do funil' }, { href: '/configuracoes/aparencia', label: 'Aparência' }];
 export function SettingsNav() {
   const pathname = usePathname();
   return <nav className="settings-nav" aria-label="Configurações"><span className="mono">Configurações</span>

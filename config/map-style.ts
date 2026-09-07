@@ -44,3 +44,36 @@ export const HELIX_MAP_STYLE: google.maps.MapTypeStyle[] = [
   { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#dededa' }] },
   { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#a5a59f' }] },
 ];
+
+/**
+ * Mesma estrutura do estilo claro, com os papéis invertidos: o terreno vira
+ * quase preto, as vias ganham um cinza que ainda se lê, e os rótulos clareiam
+ * o suficiente para contrastar sem competir com os pins.
+ */
+export const HELIX_MAP_STYLE_DARK: google.maps.MapTypeStyle[] = [
+  { elementType: 'geometry', stylers: [{ color: '#171715' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#8a8a82' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#0b0b0a' }, { weight: 3 }] },
+
+  { elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
+  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+
+  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#2f2f2b' }] },
+  { featureType: 'administrative.land_parcel', stylers: [{ visibility: 'off' }] },
+  { featureType: 'administrative.neighborhood', elementType: 'labels.text.fill', stylers: [{ color: '#9c9c93' }] },
+
+  { featureType: 'landscape.man_made', elementType: 'geometry', stylers: [{ color: '#1b1b19' }] },
+  { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#191917' }] },
+
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2c2c28' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#232320' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#7d7d75' }] },
+  { featureType: 'road.local', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#3a3a34' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#2a2a26' }] },
+  { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#9c9c93' }] },
+
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0e0e0d' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#5f5f59' }] },
+];

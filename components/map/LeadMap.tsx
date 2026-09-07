@@ -3,13 +3,15 @@
 import { APIProvider, Map, Marker, useMap } from '@vis.gl/react-google-maps';
 import { useEffect, useState } from 'react';
 import type { Lead } from '@/lib/db/schema';
-import { HELIX_MAP_STYLE } from '@/config/map-style';
+import { HELIX_MAP_STYLE, HELIX_MAP_STYLE_DARK } from '@/config/map-style';
+import { useResolvedTheme } from '@/components/theme/useResolvedTheme';
+import type { ResolvedTheme } from '@/lib/theme';
 import type { LatLng } from '@/components/explore/useSelection';
 
-const COLORS: Record<Lead['temperature'], string> = {
-  quente: '#b4381f',
-  morno: '#7a5b1f',
-  frio: '#737373',
+/** Mesmas cores dos tokens: sobre preto, o vermelho escuro sumiria. */
+const COLORS: Record<ResolvedTheme, Record<Lead['temperature'], string>> = {
+  claro: { quente: '#b4381f', morno: '#7a5b1f', frio: '#737373' },
+  escuro: { quente: '#e0674a', morno: '#cba455', frio: '#9a9a92' },
 };
 
 /** Quadrado centrado na origem — o mesmo canto reto do resto da interface. */
@@ -33,6 +35,7 @@ interface Props {
 
 export function LeadMap({ rows, selectedId, onSelect, center, zoom = 14 }: Props) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
+  const theme = useResolvedTheme();
   const [error, setError] = useState(false);
 
   if (!apiKey) {
@@ -60,7 +63,7 @@ export function LeadMap({ rows, selectedId, onSelect, center, zoom = 14 }: Props
       <Map
         defaultCenter={center}
         defaultZoom={zoom}
-        styles={HELIX_MAP_STYLE}
+        styles={theme === 'escuro' ? HELIX_MAP_STYLE_DARK : HELIX_MAP_STYLE}
         disableDefaultUI={false}
         mapTypeControl={false}
         streetViewControl={false}
@@ -78,9 +81,9 @@ export function LeadMap({ rows, selectedId, onSelect, center, zoom = 14 }: Props
             zIndex={row.id === selectedId ? 2 : 1}
             icon={{
               path: PIN_PATH,
-              fillColor: COLORS[row.temperature],
+              fillColor: COLORS[theme][row.temperature],
               fillOpacity: 1,
-              strokeColor: '#ffffff',
+              strokeColor: theme === 'escuro' ? '#0b0b0a' : '#ffffff',
               strokeWeight: 2,
               scale: row.id === selectedId ? 1.7 : 1.1,
             }}
