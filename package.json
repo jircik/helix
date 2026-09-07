@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node --import tsx lib/db/migrate.ts",
-    "db:seed": "node --import tsx lib/db/seed-cli.ts"
+    "db:seed": "node --import tsx lib/db/seed-cli.ts",
+    "db:seed:fake": "node --import tsx scripts/seed-fake.ts"
   },
   "dependencies": {
     "@fontsource/dm-mono": "^5.3.0",
