@@ -24,7 +24,10 @@ Preencha no `.env`:
 
 - `GOOGLE_PLACES_KEY`: chave de servidor da Places API (New).
 - `NEXT_PUBLIC_GOOGLE_MAPS_KEY`: chave de navegador da Maps JavaScript API.
-- `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID`: opcional; sem valor, o mapa usa o ID de demonstração para desenvolvimento.
+
+O visual do mapa vem de `config/map-style.ts`, nas cores do app. O estilo inline
+só vale enquanto o mapa não recebe um Map ID: com um Map ID o Google usa o estilo
+amarrado a ele no Console e ignora o do código.
 
 Configure APIs, faturamento, cotas e restrições das chaves no seu projeto Google Cloud. A chave de servidor nunca deve receber o prefixo `NEXT_PUBLIC_`. Não versione o `.env`.
 

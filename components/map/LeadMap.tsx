@@ -1,8 +1,9 @@
 'use client';
 
-import { AdvancedMarker, APIProvider, Map, useMap } from '@vis.gl/react-google-maps';
+import { APIProvider, Map, Marker, useMap } from '@vis.gl/react-google-maps';
 import { useEffect, useState } from 'react';
 import type { Lead } from '@/lib/db/schema';
+import { HELIX_MAP_STYLE } from '@/config/map-style';
 import type { LatLng } from '@/components/explore/useSelection';
 
 const COLORS: Record<Lead['temperature'], string> = {
@@ -10,6 +11,9 @@ const COLORS: Record<Lead['temperature'], string> = {
   morno: '#7a5b1f',
   frio: '#737373',
 };
+
+/** Quadrado centrado na origem — o mesmo canto reto do resto da interface. */
+const PIN_PATH = 'M -5 -5 H 5 V 5 H -5 Z';
 
 function Recenter({ center }: { center: LatLng }) {
   const map = useMap();
@@ -38,7 +42,13 @@ export function LeadMap({ rows, selectedId, onSelect, center, zoom = 14 }: Props
       </div>
     );
   }
-  if (error) return <div role="alert" className="empty">Não foi possível carregar o mapa. Confira a chave do Google Maps e sua conexão.</div>;
+  if (error) {
+    return (
+      <div role="alert" className="empty">
+        Não foi possível carregar o mapa. Confira a chave do Google Maps e sua conexão.
+      </div>
+    );
+  }
 
   const comCoordenada = rows.filter(
     (row): row is Lead & { lat: number; lng: number } =>
@@ -50,29 +60,31 @@ export function LeadMap({ rows, selectedId, onSelect, center, zoom = 14 }: Props
       <Map
         defaultCenter={center}
         defaultZoom={zoom}
-        mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'}
+        styles={HELIX_MAP_STYLE}
         disableDefaultUI={false}
+        mapTypeControl={false}
+        streetViewControl={false}
+        fullscreenControl={false}
+        clickableIcons={false}
         style={{ width: '100%', height: '100%' }}
       >
         <Recenter center={center} />
         {comCoordenada.map((row) => (
-          <AdvancedMarker
+          <Marker
             key={row.id}
             position={{ lat: row.lat, lng: row.lng }}
             onClick={() => onSelect(row.id)}
             title={row.name}
-          >
-            <span
-              style={{
-                display: 'block',
-                width: row.id === selectedId ? 20 : 13,
-                height: row.id === selectedId ? 20 : 13,
-                background: COLORS[row.temperature],
-                border: '2px solid #fff',
-                boxShadow: '0 1px 4px rgba(0,0,0,.4)',
-              }}
-            />
-          </AdvancedMarker>
+            zIndex={row.id === selectedId ? 2 : 1}
+            icon={{
+              path: PIN_PATH,
+              fillColor: COLORS[row.temperature],
+              fillOpacity: 1,
+              strokeColor: '#ffffff',
+              strokeWeight: 2,
+              scale: row.id === selectedId ? 1.7 : 1.1,
+            }}
+          />
         ))}
       </Map>
     </APIProvider>
