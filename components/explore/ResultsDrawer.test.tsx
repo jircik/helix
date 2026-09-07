@@ -21,31 +21,57 @@ function lead(id: number, over: Partial<Lead> = {}): Lead {
 }
 
 describe('ResultsDrawer', () => {
+  const noop = () => {};
+
   it('mostra a contagem de resultados', () => {
-    render(<ResultsDrawer rows={[lead(1), lead(2)]} selectedId={null} onSelect={() => {}} />);
+    render(<ResultsDrawer rows={[lead(1), lead(2)]} selectedId={null} onSelect={noop} onOpen={noop} />);
     expect(screen.getByText(/2 resultados/i)).toBeDefined();
   });
 
   it('usa singular com um resultado', () => {
-    render(<ResultsDrawer rows={[lead(1)]} selectedId={null} onSelect={() => {}} />);
+    render(<ResultsDrawer rows={[lead(1)]} selectedId={null} onSelect={noop} onOpen={noop} />);
     expect(screen.getByText(/1 resultado/i)).toBeDefined();
   });
 
   it('avisa quando não há resultado', () => {
-    render(<ResultsDrawer rows={[]} selectedId={null} onSelect={() => {}} />);
+    render(<ResultsDrawer rows={[]} selectedId={null} onSelect={noop} onOpen={noop} />);
     expect(screen.getByText(/nenhum resultado/i)).toBeDefined();
+  });
+
+  it('aceita uma mensagem de vazio própria', () => {
+    render(<ResultsDrawer rows={[]} selectedId={null} onSelect={noop} onOpen={noop}
+      emptyMessage="Essa busca não devolveu nada." />);
+    expect(screen.getByText('Essa busca não devolveu nada.')).toBeDefined();
   });
 
   it('seleciona ao clicar no card', async () => {
     const onSelect = vi.fn();
-    render(<ResultsDrawer rows={[lead(7)]} selectedId={null} onSelect={onSelect} />);
+    render(<ResultsDrawer rows={[lead(7)]} selectedId={null} onSelect={onSelect} onOpen={noop} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /lead 7/i }));
+    await userEvent.click(screen.getByRole('heading', { name: 'Lead 7' }));
     expect(onSelect).toHaveBeenCalledWith(7);
   });
 
-  it('marca o card selecionado com aria-pressed', () => {
-    render(<ResultsDrawer rows={[lead(3)]} selectedId={3} onSelect={() => {}} />);
-    expect(screen.getByRole('button', { pressed: true })).toBeDefined();
+  it('marca o card selecionado', () => {
+    const { container } = render(
+      <ResultsDrawer rows={[lead(3)]} selectedId={3} onSelect={noop} onOpen={noop} />,
+    );
+    expect(container.querySelector('.lead-card[aria-current="true"]')).not.toBeNull();
+  });
+
+  it('abre o detalhe sem depender da seleção', async () => {
+    const onSelect = vi.fn();
+    const onOpen = vi.fn();
+    render(<ResultsDrawer rows={[lead(5)]} selectedId={null} onSelect={onSelect} onOpen={onOpen} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /ver detalhes/i }));
+    expect(onOpen).toHaveBeenCalledWith(5);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('renderiza o botão de filtros que recebe', () => {
+    render(<ResultsDrawer rows={[]} selectedId={null} onSelect={noop} onOpen={noop}
+      toolbar={<button type="button">Filtros</button>} />);
+    expect(screen.getByRole('button', { name: 'Filtros' })).toBeDefined();
   });
 });

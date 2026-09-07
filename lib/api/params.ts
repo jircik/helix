@@ -28,6 +28,7 @@ export function leadListInputFromParams(params: URLSearchParams): ListLeadsInput
     verifications: usarPadrao
       ? DEFAULT_LIST_INPUT.verifications
       : csvList(params.get('verifications'), VERIFICATIONS),
+    searchId: params.has('searchId') ? routeId(params.get('searchId')!) : undefined,
     stageId: params.has('stageId') ? routeId(params.get('stageId')!) : undefined,
     search: params.get('search'),
     limit: params.has('limit') ? v.integer(Number(params.get('limit')), 'Limite', 1, 500) : 50,

@@ -1,6 +1,6 @@
 import { and, asc, count, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import type { HelixDb } from '@/lib/db/client';
-import { leads, stages, type Lead, type Temperature, type Verification } from '@/lib/db/schema';
+import { leadSearches, leads, stages, type Lead, type Temperature, type Verification } from '@/lib/db/schema';
 import type { NormalizedPlace } from '@/lib/places/types';
 import * as v from '@/lib/validate';
 import { VERIFICATIONS } from '@/lib/db/schema';
@@ -78,6 +78,8 @@ export function upsertPlaces(
 
 export interface ListLeadsInput {
   ids?: number[];
+  /** Recorta pelos leads que aquela execução de busca devolveu. */
+  searchId?: number | null;
   temperatures?: Temperature[];
   verifications?: Verification[];
   stageId?: number | null;
@@ -102,6 +104,16 @@ function listConditions(input: ListLeadsInput): SQL[] {
   if (input.ids) {
     input.ids.forEach((id) => v.integer(id, 'Lead'));
     parts.push(input.ids.length ? inArray(leads.id, input.ids) : sql`0`);
+  }
+
+  if (typeof input.searchId === 'number') {
+    v.integer(input.searchId, 'Busca');
+    // Subconsulta em vez de join: o mesmo lead pode estar ligado à busca por
+    // mais de uma linha, e um join duplicaria a linha e inflaria o total.
+    parts.push(sql`${leads.id} in (
+      select ${leadSearches.leadId} from ${leadSearches}
+      where ${leadSearches.searchId} = ${input.searchId}
+    )`);
   }
 
   if (input.temperatures?.length) {

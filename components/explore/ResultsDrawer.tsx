@@ -1,17 +1,24 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import type { Lead } from '@/lib/db/schema';
-import { TemperatureBadge } from '@/components/ui/TemperatureBadge';
+import { LeadCard } from '@/components/leads/LeadCard';
 
 interface Props {
   rows: Lead[];
   selectedId: number | null;
   onSelect: (id: number) => void;
+  onOpen: (id: number) => void;
+  /** Botão de filtros, montado por quem usa o drawer. */
+  toolbar?: ReactNode;
+  emptyMessage?: string;
 }
 
-export function ResultsDrawer({ rows, selectedId, onSelect }: Props) {
-  const selectedRef = useRef<HTMLButtonElement | null>(null);
+export function ResultsDrawer({
+  rows, selectedId, onSelect, onOpen, toolbar,
+  emptyMessage = 'Nenhum resultado. Rode uma busca ou troque os filtros.',
+}: Props) {
+  const selectedRef = useRef<HTMLDivElement | null>(null);
 
   // Clicar no pin rola o drawer até o card correspondente.
   useEffect(() => {
@@ -19,39 +26,26 @@ export function ResultsDrawer({ rows, selectedId, onSelect }: Props) {
   }, [selectedId]);
 
   return (
-    <aside className="panel" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+    <aside className="panel results-drawer" aria-label="Resultados">
       <div className="panel-head">
         <span className="mono">
           {rows.length} {rows.length === 1 ? 'resultado' : 'resultados'}
         </span>
+        {toolbar}
       </div>
-      <div style={{ overflowY: 'auto', flex: 1 }}>
+      <div className="results-scroll">
         {rows.length === 0 ? (
-          <p className="empty">Nenhum resultado. Rode uma busca.</p>
+          <p className="empty">{emptyMessage}</p>
         ) : (
           rows.map((row) => (
-            <button
-              key={row.id}
-              ref={row.id === selectedId ? selectedRef : undefined}
-              aria-pressed={row.id === selectedId}
-              onClick={() => onSelect(row.id)}
-              style={{
-                width: '100%', padding: 16, textAlign: 'left', border: 0,
-                borderBottom: '1px solid var(--line)',
-                background: row.id === selectedId ? 'var(--soft)' : 'transparent',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                <strong style={{ fontSize: 13 }}>{row.name}</strong>
-                <TemperatureBadge temperature={row.temperature} />
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>
-                {row.formattedAddress ?? 'Sem endereço'}
-              </div>
-              <div className="mono" style={{ marginTop: 6 }}>
-                {row.primaryTypeDisplay ?? 'Sem tipo'} · {row.userRatingCount ?? 0} avaliações
-              </div>
-            </button>
+            <div key={row.id} ref={row.id === selectedId ? selectedRef : undefined}>
+              <LeadCard
+                lead={row}
+                selected={row.id === selectedId}
+                onSelect={onSelect}
+                onOpen={onOpen}
+              />
+            </div>
           ))
         )}
       </div>

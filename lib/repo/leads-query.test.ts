@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { createTestDb, type HelixDb } from '@/lib/db/client';
-import { leads, stages } from '@/lib/db/schema';
+import { leads, leadSearches, searches, stages } from '@/lib/db/schema';
 import { seedStages } from '@/lib/db/seed';
 import {
   listLeads, getLead, updateUserBlock, countByTemperature, DEFAULT_LIST_INPUT,
@@ -162,5 +162,81 @@ describe('countByTemperature', () => {
     insert(db, { temperature: 'morno' });
 
     expect(countByTemperature(db)).toEqual({ quente: 2, morno: 1, frio: 0 });
+  });
+});
+
+describe('listLeads por busca', () => {
+  function insertSearch(db: HelixDb, textQuery: string) {
+    return db.insert(searches).values({
+      textQuery, filtersJson: '{}', executedAt: NOW,
+    }).returning().get();
+  }
+  function link(db: HelixDb, leadId: number, searchId: number, wasNew = true) {
+    db.insert(leadSearches).values({ leadId, searchId, wasNew }).run();
+  }
+
+  it('devolve só os leads ligados à busca', () => {
+    const db = freshDb();
+    const a = insert(db, { name: 'Da busca' });
+    const b = insert(db, { name: 'De outra busca' });
+    const busca = insertSearch(db, 'barbearia Pinheiros');
+    const outra = insertSearch(db, 'academia Moema');
+    link(db, a.id, busca.id);
+    link(db, b.id, outra.id);
+
+    const out = listLeads(db, { searchId: busca.id });
+    expect(out.rows.map((row) => row.name)).toEqual(['Da busca']);
+    expect(out.total).toBe(1);
+  });
+
+  it('inclui o lead que aparece em duas buscas', () => {
+    const db = freshDb();
+    const lead = insert(db, { name: 'Reencontrado' });
+    const primeira = insertSearch(db, 'primeira');
+    const segunda = insertSearch(db, 'segunda');
+    link(db, lead.id, primeira.id, true);
+    link(db, lead.id, segunda.id, false);
+
+    expect(listLeads(db, { searchId: primeira.id }).rows).toHaveLength(1);
+    expect(listLeads(db, { searchId: segunda.id }).rows).toHaveLength(1);
+  });
+
+  it('não repete o lead quando o join casa mais de uma vez', () => {
+    const db = freshDb();
+    const lead = insert(db, { name: 'Único' });
+    const busca = insertSearch(db, 'busca');
+    link(db, lead.id, busca.id);
+
+    const out = listLeads(db, { searchId: busca.id });
+    expect(out.rows).toHaveLength(1);
+    expect(out.total).toBe(1);
+  });
+
+  it('devolve vazio para busca sem leads', () => {
+    const db = freshDb();
+    insert(db, { name: 'Solto' });
+    const vazia = insertSearch(db, 'nada encontrou');
+
+    const out = listLeads(db, { searchId: vazia.id });
+    expect(out.rows).toEqual([]);
+    expect(out.total).toBe(0);
+  });
+
+  it('combina a busca com os demais filtros', () => {
+    const db = freshDb();
+    const quente = insert(db, { name: 'Quente', temperature: 'quente' });
+    const frio = insert(db, { name: 'Frio', temperature: 'frio' });
+    const busca = insertSearch(db, 'busca');
+    link(db, quente.id, busca.id);
+    link(db, frio.id, busca.id);
+
+    const out = listLeads(db, { searchId: busca.id, temperatures: ['quente'] });
+    expect(out.rows.map((row) => row.name)).toEqual(['Quente']);
+  });
+
+  it('sem searchId não filtra por busca', () => {
+    const db = freshDb();
+    insert(db, { name: 'Sem busca nenhuma' });
+    expect(listLeads(db, {}).rows).toHaveLength(1);
   });
 });

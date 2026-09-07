@@ -344,3 +344,44 @@ tr:focus-visible .row-action, .row-action:focus-visible { color: var(--black); b
 @media (prefers-reduced-motion: reduce) { .tab, .row-action { transition: none; } }
 .lead-map { height: 340px; border: 1px solid var(--line); overflow: hidden; }
 @media (max-width: 720px) { .lead-map { height: 260px; } }
+
+/* ── Explorar: barra de busca, cards e modo lista ───────────── */
+.explore-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.view-toggle { display: inline-flex; border: 1px solid var(--line); background: var(--soft); }
+.view-toggle .tab[aria-pressed="true"] { background: var(--white); color: var(--black); font-weight: 500; }
+
+.explore-bar { margin: 24px 0 0; padding: 16px 18px; display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; border: 1px solid var(--line); background: var(--white); }
+.search-picker { flex: 1 1 340px; max-width: 520px; }
+.explore-bar-filters { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.explore-bar-filters .filter-summary { margin: 0; }
+.explore-summary { margin: 16px 0 0; }
+.explore-count { margin: 24px 0 12px; }
+
+.filter-count { min-width: 17px; height: 17px; margin-left: 2px; padding: 0 4px; display: inline-grid; place-items: center; background: var(--black); color: var(--white); font: 500 9px/1 "DM Mono", ui-monospace, monospace; }
+
+.results-drawer { display: flex; flex-direction: column; min-height: 0; }
+.results-drawer .panel-head { gap: 12px; }
+.results-scroll { overflow-y: auto; flex: 1; }
+
+.lead-card { padding: 16px; display: grid; gap: 9px; border-bottom: 1px solid var(--line); cursor: pointer; transition: background .15s; }
+.lead-card:hover { background: var(--soft); }
+.lead-card[aria-current="true"] { background: var(--soft); box-shadow: inset 2px 0 0 var(--black); }
+.lead-card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.lead-initials { width: 30px; height: 30px; display: grid; place-items: center; background: var(--black); color: var(--white); font: 500 10px "DM Mono", ui-monospace, monospace; }
+.lead-card h3 { margin: 0; font-size: 13px; font-weight: 500; line-height: 1.35; }
+.lead-card-place { margin: 0; color: var(--muted); font-size: 11px; }
+.lead-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.lead-tags span { padding: 3px 7px; border: 1px solid var(--line); color: #6a6a6a; font-size: 10px; }
+.lead-card footer { margin-top: 3px; padding-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid var(--line); }
+.lead-card-open { border: 0; background: transparent; color: var(--black); font-size: 11px; padding: 0; }
+.lead-card-open:hover { text-decoration: underline; }
+
+.lead-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(272px, 1fr)); gap: 16px; }
+.lead-card-grid .lead-card { border: 1px solid var(--line); background: var(--white); }
+.lead-card-grid .lead-card[aria-current="true"] { box-shadow: inset 2px 0 0 var(--black); }
+
+@media (max-width: 720px) {
+  .explore-bar { padding: 14px; }
+  .search-picker { flex-basis: 100%; max-width: none; }
+  .explore-actions { width: 100%; justify-content: space-between; }
+}
