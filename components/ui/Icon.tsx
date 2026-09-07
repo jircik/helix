@@ -10,6 +10,8 @@ const PATHS = {
   expand: 'M3 4h18v16H3z M8 4v16 M13 9l3 3-3 3',
   arrow: 'M4 12h16 M14 6l6 6-6 6',
   filter: 'M4 5h16 M7 12h10 M10 19h4',
+  search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14Z M20 20l-4-4',
+  close: 'M6 6l12 12 M18 6 6 18',
 } as const;
 export type IconName = keyof typeof PATHS;
 export function Icon({ name, ...props }: SVGProps<SVGSVGElement> & { name: IconName }) {

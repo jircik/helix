@@ -6,7 +6,7 @@ import type { RunSearchInput, RunSearchResult } from '@/lib/services/run-search'
 import { apiGet, apiSend } from '@/lib/api/client';
 import { SearchForm } from './SearchForm';
 import { ResultsDrawer } from './ResultsDrawer';
-import { LeadMap } from './LeadMap';
+import { LeadMap } from '@/components/map/LeadMap';
 import { useSelection } from './useSelection';
 
 export function ExploreView() {

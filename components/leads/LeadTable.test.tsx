@@ -55,4 +55,25 @@ describe('LeadTable', () => {
     render(<LeadTable rows={[lead({ id: 7 })]} selectedId={7} onSelect={() => {}} />);
     expect(screen.getByRole('row', { selected: true })).toBeDefined();
   });
+
+  it('mostra uma lupa por linha, rotulada com o nome do lead', () => {
+    render(<LeadTable rows={[lead({ name: 'Barbearia Dois' })]} selectedId={null} onSelect={() => {}} />);
+    expect(screen.getByRole('button', { name: 'Ver detalhes de Barbearia Dois' })).toBeDefined();
+  });
+
+  it('a lupa abre o detalhe do lead', async () => {
+    const onSelect = vi.fn();
+    render(<LeadTable rows={[lead({ id: 9 })]} selectedId={null} onSelect={onSelect} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /ver detalhes de/i }));
+    expect(onSelect).toHaveBeenCalledWith(9);
+  });
+
+  it('a lupa não dispara a seleção duas vezes ao propagar para a linha', async () => {
+    const onSelect = vi.fn();
+    render(<LeadTable rows={[lead({ id: 9 })]} selectedId={null} onSelect={onSelect} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /ver detalhes de/i }));
+    expect(onSelect).toHaveBeenCalledTimes(1);
+  });
 });

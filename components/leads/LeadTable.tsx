@@ -1,6 +1,7 @@
 'use client';
 
 import type { Lead } from '@/lib/db/schema';
+import { Icon } from '@/components/ui/Icon';
 import { TemperatureBadge } from '@/components/ui/TemperatureBadge';
 
 interface Props {
@@ -23,6 +24,7 @@ export function LeadTable({ rows, selectedId, onSelect }: Props) {
           <th>Telefone</th>
           <th>Avaliações</th>
           <th>Temperatura</th>
+          <th><span className="sr-only">Detalhes</span></th>
         </tr>
       </thead>
       <tbody>
@@ -31,7 +33,9 @@ export function LeadTable({ rows, selectedId, onSelect }: Props) {
             key={row.id}
             aria-selected={row.id === selectedId}
             tabIndex={0}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(row.id); } }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(row.id); }
+            }}
             onClick={() => onSelect(row.id)}
           >
             <td>
@@ -45,6 +49,17 @@ export function LeadTable({ rows, selectedId, onSelect }: Props) {
             <td>{row.phone ?? '—'}</td>
             <td>{row.userRatingCount ?? 0}</td>
             <td><TemperatureBadge temperature={row.temperature} /></td>
+            <td className="row-action-cell">
+              <button
+                type="button"
+                className="row-action"
+                aria-label={'Ver detalhes de ' + row.name}
+                title="Ver detalhes"
+                onClick={(event) => { event.stopPropagation(); onSelect(row.id); }}
+              >
+                <Icon name="search" width={16} height={16} />
+              </button>
+            </td>
           </tr>
         ))}
       </tbody>

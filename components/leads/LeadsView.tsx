@@ -5,7 +5,7 @@ import type { Activity, ActivityKind, Lead, Stage, Temperature } from '@/lib/db/
 import type { UserBlockPatch } from '@/lib/repo/leads';
 import { apiGet, apiSend } from '@/lib/api/client';
 import { LeadTable } from './LeadTable';
-import { LeadDetail } from './LeadDetail';
+import { LeadModal } from './LeadModal';
 import { LeadFilters } from './LeadFilters';
 
 export function LeadsView({ initialLeadId = null }: { initialLeadId?: number | null }) {
@@ -64,6 +64,11 @@ export function LeadsView({ initialLeadId = null }: { initialLeadId?: number | n
     await apiSend('/api/leads/' + selectedId, 'PATCH', body);
     setRevision((value) => value + 1);
   }
+  async function moveStage(stageId: number) {
+    if (selectedId === null) return;
+    await apiSend('/api/leads/' + selectedId + '/stage', 'PUT', { stageId });
+    setRevision((value) => value + 1);
+  }
   async function addActivity(input: { kind: ActivityKind; body: string }) {
     if (selectedId === null) return;
     await apiSend('/api/leads/' + selectedId + '/activities', 'POST', input);
@@ -85,7 +90,7 @@ export function LeadsView({ initialLeadId = null }: { initialLeadId?: number | n
         onDescartados={(value) => changeFilters(() => setIncluirDescartados(value))}
         onBusca={(value) => changeFilters(() => setBusca(value))}
         onStage={(value) => changeFilters(() => setStageId(value))} />
-      <div className={selectedId !== null ? 'leads-layout with-detail' : 'leads-layout'}>
+      <div className="leads-layout">
         <div>
           <div className="panel table-scroll" aria-busy={loading}>
             {loading ? <p className="empty">Carregando leads…</p> :
@@ -97,13 +102,19 @@ export function LeadsView({ initialLeadId = null }: { initialLeadId?: number | n
             <button className="btn btn-outline" disabled={offset + 50 >= total || loading} onClick={() => setOffset(offset + 50)}>Próxima</button>
           </div>
         </div>
-        {selectedId !== null && <aside aria-label="Detalhes do lead">
-          <button className="btn btn-outline" style={{ marginBottom: 16 }} onClick={() => setSelectedId(null)}>Fechar</button>
-          {shownDetail ? <LeadDetail key={shownDetail.lead.id + ':' + shownDetail.lead.updatedAt} lead={shownDetail.lead}
-            activities={shownDetail.activities} stages={stages} onPatch={patch} onAddActivity={addActivity} />
-            : <p className="empty">Carregando detalhes…</p>}
-        </aside>}
       </div>
+      {selectedId !== null && shownDetail && (
+        <LeadModal
+          key={shownDetail.lead.id + ':' + shownDetail.lead.updatedAt}
+          lead={shownDetail.lead}
+          activities={shownDetail.activities}
+          stages={stages}
+          onPatch={patch}
+          onMoveStage={moveStage}
+          onAddActivity={addActivity}
+          onClose={() => setSelectedId(null)}
+        />
+      )}
     </div>
   );
 }

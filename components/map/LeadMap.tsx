@@ -3,7 +3,7 @@
 import { AdvancedMarker, APIProvider, Map, useMap } from '@vis.gl/react-google-maps';
 import { useEffect, useState } from 'react';
 import type { Lead } from '@/lib/db/schema';
-import type { LatLng } from './useSelection';
+import type { LatLng } from '@/components/explore/useSelection';
 
 const COLORS: Record<Lead['temperature'], string> = {
   quente: '#b4381f',
@@ -24,9 +24,10 @@ interface Props {
   selectedId: number | null;
   onSelect: (id: number) => void;
   center: LatLng;
+  zoom?: number;
 }
 
-export function LeadMap({ rows, selectedId, onSelect, center }: Props) {
+export function LeadMap({ rows, selectedId, onSelect, center, zoom = 14 }: Props) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
   const [error, setError] = useState(false);
 
@@ -48,7 +49,7 @@ export function LeadMap({ rows, selectedId, onSelect, center }: Props) {
     <APIProvider apiKey={apiKey} language="pt-BR" region="BR" onError={() => setError(true)}>
       <Map
         defaultCenter={center}
-        defaultZoom={14}
+        defaultZoom={zoom}
         mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'}
         disableDefaultUI={false}
         style={{ width: '100%', height: '100%' }}
