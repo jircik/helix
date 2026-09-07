@@ -30,4 +30,10 @@ describe('readEnv', () => {
       readEnv({ NEXT_PUBLIC_GOOGLE_MAPS_KEY: 'chave-browser' }),
     ).toThrow('GOOGLE_PLACES_KEY');
   });
+
+  it('lança erro quando a chave do browser está vazia ou só contém espaços', () => {
+    expect(() =>
+      readEnv({ GOOGLE_PLACES_KEY: 'chave-server', NEXT_PUBLIC_GOOGLE_MAPS_KEY: '  ' }),
+    ).toThrow('NEXT_PUBLIC_GOOGLE_MAPS_KEY');
+  });
 });
