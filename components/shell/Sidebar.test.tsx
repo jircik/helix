@@ -9,10 +9,10 @@ describe('sidebar recolhível', () => {
     render(<Sidebar />);
     const brand = screen.getByRole('link', { name: 'Helix — início' });
     expect(brand.textContent).toBe('HELIX');
-    expect(brand.querySelector('img')).toBeNull();
+    expect(brand.querySelector('svg')).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Recolher menu' }));
     expect(brand.textContent).toBe('');
-    expect(brand.querySelector('img')).not.toBeNull();
+    expect(brand.querySelector('svg')).not.toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Expandir menu' }));
     expect(brand.textContent).toBe('HELIX');
   });

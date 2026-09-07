@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { Icon, type IconName } from '@/components/ui/Icon';
+import { Logo } from '@/components/ui/Logo';
 
 const LINKS: { href: string; label: string; icon: IconName }[] = [
   { href: '/', label: 'Visão geral', icon: 'overview' },
@@ -21,7 +21,7 @@ export function Sidebar() {
   return (
     <aside className="sidebar" data-collapsed={collapsed}>
       <div className="sidebar-heading"><Link className="brand" href="/" aria-label="Helix — início">
-        {collapsed ? <Image src="/logo.svg" alt="" width={31} height={31} /> : <span>HELIX</span>}
+        {collapsed ? <Logo /> : <span>HELIX</span>}
       </Link>
       <button type="button" className="sidebar-toggle" aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'} aria-expanded={!collapsed} aria-controls="main-navigation" onClick={() => setCollapsed((value) => !value)}>
         <Icon name={collapsed ? 'expand' : 'collapse'} />
