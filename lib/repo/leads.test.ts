@@ -1,9 +1,9 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { createTestDb, type HelixDb } from '@/lib/db/client';
-import { leads, stages } from '@/lib/db/schema';
+import { activities, leads, stages } from '@/lib/db/schema';
 import { seedStages } from '@/lib/db/seed';
-import { upsertPlace, upsertPlaces } from './leads';
+import { upsertPlace, upsertPlaces, deleteLeads, listLeads } from './leads';
 import type { NormalizedPlace } from '@/lib/places/types';
 
 let close: () => void;
@@ -143,5 +143,85 @@ describe('upsertPlaces', () => {
     expect(out[0].wasNew).toBe(true);
     expect(out[1].wasNew).toBe(false);
     expect(db.select().from(leads).all()).toHaveLength(1);
+  });
+});
+
+describe('deleteLeads', () => {
+  function tres(db: HelixDb): number[] {
+    return upsertPlaces(db, [
+      place({ placeId: 'ChIJ1', name: 'Um' }),
+      place({ placeId: 'ChIJ2', name: 'Dois' }),
+      place({ placeId: 'ChIJ3', name: 'Três' }),
+    ], T1).map((o) => o.leadId);
+  }
+
+  it('apaga só os ids pedidos', () => {
+    const db = freshDb();
+    const [um, dois] = tres(db);
+
+    expect(deleteLeads(db, { ids: [um, dois] })).toBe(2);
+    expect(db.select().from(leads).all().map((l) => l.name)).toEqual(['Três']);
+  });
+
+  it('apaga tudo que o filtro pega, não só a página', () => {
+    const db = freshDb();
+    tres(db);
+    db.update(leads).set({ temperature: 'frio' }).where(eq(leads.placeId, 'ChIJ3')).run();
+
+    expect(deleteLeads(db, { temperatures: ['quente'] })).toBe(2);
+    expect(db.select().from(leads).all().map((l) => l.name)).toEqual(['Três']);
+  });
+
+  it('cruza ids com o filtro — id fora do recorte não é apagado', () => {
+    const db = freshDb();
+    const [um, , tresId] = tres(db);
+    db.update(leads).set({ temperature: 'frio' }).where(eq(leads.id, tresId)).run();
+
+    expect(deleteLeads(db, { ids: [um, tresId], temperatures: ['quente'] })).toBe(1);
+    expect(db.select().from(leads).all()).toHaveLength(2);
+  });
+
+  it('recusa recorte vazio em vez de apagar a base', () => {
+    const db = freshDb();
+    tres(db);
+
+    expect(() => deleteLeads(db, {})).toThrow(/delimite/i);
+    expect(db.select().from(leads).all()).toHaveLength(3);
+  });
+
+  it('lista de ids vazia não apaga nada', () => {
+    const db = freshDb();
+    tres(db);
+
+    expect(deleteLeads(db, { ids: [] })).toBe(0);
+    expect(db.select().from(leads).all()).toHaveLength(3);
+  });
+
+  it('recusa id inválido', () => {
+    const db = freshDb();
+    tres(db);
+
+    expect(() => deleteLeads(db, { ids: [0] })).toThrow(/Lead/);
+    expect(db.select().from(leads).all()).toHaveLength(3);
+  });
+
+  it('tira o lead apagado do índice de busca', () => {
+    const db = freshDb();
+    const [um] = tres(db);
+
+    deleteLeads(db, { ids: [um] });
+    expect(listLeads(db, { search: 'Um' }).total).toBe(0);
+    expect(listLeads(db, { search: 'Dois' }).total).toBe(1);
+  });
+
+  it('leva junto as atividades do lead', () => {
+    const db = freshDb();
+    const [um] = tres(db);
+    db.insert(activities).values({
+      leadId: um, kind: 'nota', body: 'ligou', occurredAt: T1, createdAt: T1,
+    }).run();
+
+    deleteLeads(db, { ids: [um] });
+    expect(db.select().from(activities).all()).toHaveLength(0);
   });
 });

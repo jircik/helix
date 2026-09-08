@@ -153,6 +153,23 @@ export function listLeads(db: HelixDb, input: ListLeadsInput): ListLeadsResult {
   return { rows, total };
 }
 
+/**
+ * Apaga de vez os leads que casam com o recorte.
+ *
+ * Reaproveita as condições da listagem para que a tela nunca precise mandar
+ * uma lista de ids quando o usuário escolhe "todos do filtro". Atividades e
+ * vínculos de busca somem pelo ON DELETE CASCADE, e o índice FTS pelo trigger
+ * leads_fts_delete — nada aqui precisa limpar isso à mão.
+ *
+ * Sem nenhuma condição a chamada é recusada: um recorte vazio apagaria a base.
+ */
+export function deleteLeads(db: HelixDb, input: ListLeadsInput): number {
+  const parts = listConditions(input);
+  if (!parts.length) throw new Error('Delimite quais leads apagar.');
+
+  return db.delete(leads).where(and(...parts)).returning({ id: leads.id }).all().length;
+}
+
 export function getLead(db: HelixDb, id: number): Lead | null {
   return db.select().from(leads).where(eq(leads.id, id)).get() ?? null;
 }
