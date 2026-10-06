@@ -41,7 +41,7 @@ Uma réplica, um volume, modo WAL. O volume do Railway aceita um único processo
 
 ### Isolamento entre contas
 
-`userId` é obrigatório em todo repositório e serviço. Recurso de outra conta responde 404, não 403, para não revelar que ele existe. Um teste cria as contas A e B e percorre todas as rotas da API verificando que B nunca alcança dados de A.
+`userId` é obrigatório em todo repositório e serviço. Recurso de outra conta responde 404, não 403, para não revelar que ele existe. Um teste cria as contas A e B e verifica que, nas rotas de dados da API (leads, etapas, buscas, exemplos, cota, visão geral e exportação), A não alcança os dados de B.
 
 ### Cota diária do Google
 

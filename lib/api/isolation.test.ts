@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { eq } from 'drizzle-orm';
 import { createTestDb, type HelixDb } from '@/lib/db/client';
 import { createTestUser } from '@/lib/db/test-users';
 import { leads, searches, searchPresets, stages } from '@/lib/db/schema';
@@ -10,6 +11,9 @@ import { GET as timelineRoute, POST as activityRoute } from '@/app/api/leads/[id
 import { GET as exportRoute } from '@/app/api/leads/export/route';
 import { GET as overviewRoute } from '@/app/api/overview/route';
 import { GET as searchesRoute, POST as searchRoute } from '@/app/api/searches/route';
+import { GET as samplesGet, POST as samplesPost, DELETE as samplesDelete } from '@/app/api/samples/route';
+import { GET as quotaRoute } from '@/app/api/searches/quota/route';
+import { generateSamples } from '@/lib/services/samples';
 import { GET as stagesRoute, PUT as reorderRoute } from '@/app/api/stages/route';
 import { PATCH as patchStageRoute, DELETE as deleteStageRoute } from '@/app/api/stages/[id]/route';
 
@@ -83,5 +87,20 @@ describe('usuário A não alcança nada do usuário B', () => {
     expect(reorder.status).toBe(400);
     expect(db.select().from(leads).all()).toHaveLength(1);
     expect(db.select().from(stages).all()).toHaveLength(12);
+  });
+
+  it('dados de exemplo e cota do B não aparecem para o A', async () => {
+    generateSamples(db, 'user-b');
+    const antes = db.select().from(leads).all().length;
+    expect(await (await samplesGet(req('/api/samples'))).json()).toEqual({ hasSamples: false, hasLeads: false });
+    expect(await (await samplesDelete(req('/api/samples', { method: 'DELETE' }))).json()).toEqual({ leads: 0, searches: 0 });
+    expect(db.select().from(leads).all()).toHaveLength(antes);
+    db.insert(searches).values({ userId: 'user-b', textQuery: 'real do B', filtersJson: '{}', apiRequests: 3,
+      executedAt: new Date().toISOString() }).run();
+    expect((await (await quotaRoute(req('/api/searches/quota'))).json()).used).toBe(0);
+    // POST do A gera só para o A: os leads do B não mudam
+    const doB = db.select().from(leads).where(eq(leads.userId, 'user-b')).all().length;
+    expect((await samplesPost(req('/api/samples', { method: 'POST' }))).status).toBe(200);
+    expect(db.select().from(leads).where(eq(leads.userId, 'user-b')).all()).toHaveLength(doB);
   });
 });

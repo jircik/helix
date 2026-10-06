@@ -20,6 +20,8 @@ export function createAuth(db: HelixDb) {
     },
     session: { expiresIn: 7 * DAY, updateAge: DAY },
     trustedOrigins: process.env.NODE_ENV === 'production' ? [] : DEV_ORIGINS,
+    // Atrás do proxy do Railway o IP real do cliente chega em cabeçalhos; sem eles o rate limit não identifica quem chama.
+    advanced: { ipAddress: { ipAddressHeaders: ['x-real-ip', 'x-forwarded-for'] } },
     rateLimit: {
       enabled: process.env.NODE_ENV === 'production',
       customRules: { '/sign-up/email': { window: 60 * 60, max: 5 } },

@@ -6,6 +6,7 @@ import type { RunSearchInput } from '@/lib/services/run-search';
 import { apiGet } from '@/lib/api/client';
 import { QUOTA_EXCEEDED_MESSAGE, type QuotaStatus } from '@/lib/quota-shared';
 import { BUSINESS_TYPES } from '@/config/business-types';
+import { useSampleState } from '@/components/samples/useSampleState';
 import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
 import { Icon } from '@/components/ui/Icon';
@@ -25,6 +26,7 @@ function SearchFilters({ value, onApply, onClose }: { value: Options; onApply: (
     apiGet<QuotaStatus>('/api/searches/quota').then((out) => { if (active) setQuota(out); }).catch(() => {});
     return () => { active = false; };
   }, []);
+  const samples = useSampleState(false);
   const semCota = quota?.remaining === 0;
   function set<K extends keyof Options>(key: K, value: Options[K]) { setDraft((prev) => ({ ...prev, [key]: value })); }
   return <Modal title="Nova prospecção" eyebrow="Encontre seu próximo cliente" onClose={onClose}>
@@ -55,7 +57,11 @@ function SearchFilters({ value, onApply, onClose }: { value: Options; onApply: (
         </section>
         <p className="filter-note">Cada página consulta a API e pode gerar cobrança no Google. O Helix limita cada busca a três páginas.</p>
         {quota && (semCota
-          ? <p role="alert" className="error">{QUOTA_EXCEEDED_MESSAGE}</p>
+          ? <>
+            <p role="alert" className="error">{QUOTA_EXCEEDED_MESSAGE}</p>
+            <button type="button" className="btn btn-outline" disabled={samples.busy} onClick={samples.generate}>Gerar dados de exemplo</button>
+            {samples.erro && <p role="alert" className="error">{samples.erro}</p>}
+          </>
           : <p className="filter-note">Restam {quota.remaining} de {quota.limit} chamadas à API hoje.</p>)}
       </div>
       <div className="modal-actions"><button type="button" className="btn btn-outline" onClick={() => setDraft({ ...DEFAULTS, textQuery: draft.textQuery })}>Restaurar padrão</button>

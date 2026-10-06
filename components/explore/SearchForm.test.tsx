@@ -4,7 +4,9 @@ import userEvent from '@testing-library/user-event';
 import { SearchForm } from './SearchForm';
 
 const apiGet = vi.hoisted(() => vi.fn(async () => ({ used: 2, limit: 6, remaining: 4 })));
-vi.mock('@/lib/api/client', () => ({ apiGet }));
+const apiSend = vi.hoisted(() => vi.fn(async () => ({})));
+vi.mock('@/lib/api/client', () => ({ apiGet, apiSend }));
+vi.mock('@/lib/browser', () => ({ reloadPage: vi.fn() }));
 
 describe('prospecção inteiramente em modal', () => {
   it('mostra só a ação principal e não consulta a API ao abrir', async () => {
@@ -60,5 +62,6 @@ describe('prospecção inteiramente em modal', () => {
     await userEvent.type(screen.getByLabelText('O que buscar'), 'Padarias');
     expect(await screen.findByText(/Limite diário de demonstração atingido/)).toBeDefined();
     expect((screen.getByRole('button', { name: 'Buscar estabelecimentos' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Gerar dados de exemplo' })).toBeDefined();
   });
 });

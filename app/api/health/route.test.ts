@@ -16,7 +16,10 @@ describe('GET /api/health', () => {
     expect(await res.json()).toEqual({ ok: true });
   });
   it('503 quando o banco falha', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     holder.broken = true;
     expect((await GET()).status).toBe(503);
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
   });
 });

@@ -39,3 +39,4 @@ Text Search Enterprise tem 1.000 chamadas grátis/mês; Dynamic Maps, 10.000 car
 - `curl https://helix.jircik.dev/api/health` → `{"ok":true}`
 - Criar conta, gerar exemplos, fazer uma busca real de 1 página, conferir "Restam 5 de 6".
 - No Railway, conferir que `/data/backups` tem um arquivo.
+- Conferir nos logs do Railway se aparece "Rate limiting could not determine a client IP". Se aparecer, ajustar `ipAddressHeaders` em `lib/auth/auth.ts` para o cabeçalho que o Railway envia.

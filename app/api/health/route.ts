@@ -9,7 +9,8 @@ export async function GET() {
   try {
     getDb().get(sql`select 1`);
     return jsonOk({ ok: true });
-  } catch {
+  } catch (error) {
+    console.error('[health] banco indisponível:', error);
     return jsonError('Banco indisponível.', 503);
   }
 }

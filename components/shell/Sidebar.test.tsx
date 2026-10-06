@@ -6,7 +6,8 @@ import { Sidebar } from './Sidebar';
 const router = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn() }));
 vi.mock('next/navigation', () => ({ usePathname: () => '/configuracoes/etapa', useRouter: () => router }));
 const signOut = vi.hoisted(() => vi.fn(async () => ({ data: {}, error: null })));
-vi.mock('@/lib/auth/client', () => ({ authClient: { signOut } }));
+const getSession = vi.hoisted(() => vi.fn(async () => ({ data: null, error: null })));
+vi.mock('@/lib/auth/client', () => ({ authClient: { signOut, getSession } }));
 const USER = { name: 'Ana Souza', email: 'ana@teste.dev' };
 describe('sidebar recolhível', () => {
   it('alterna entre a marca por escrito e somente o símbolo', async () => {
@@ -34,6 +35,12 @@ describe('sidebar recolhível', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sair' }));
     expect(signOut).toHaveBeenCalled();
     expect(router.replace).toHaveBeenCalledWith('/entrar');
+  });
+
+  it('renova a sessão uma vez ao montar', () => {
+    getSession.mockClear();
+    render(<Sidebar user={USER} />);
+    expect(getSession).toHaveBeenCalledTimes(1);
   });
 
   it('recolhida mostra só a inicial', async () => {

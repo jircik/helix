@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { authClient } from '@/lib/auth/client';
 import { Logo } from '@/components/ui/Logo';
@@ -19,6 +19,16 @@ export function Sidebar({ user }: { user: { name: string; email: string } }) {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+
+  // As leituras de sessão no servidor não conseguem regravar o cookie; esta chamada passa pelo
+  // route handler, que reemite o cookie quando o Better Auth renova a sessão (7 dias com uso).
+  useEffect(() => { authClient.getSession().catch(() => {}); }, []);
+
+  async function sair() {
+    try { await authClient.signOut(); } catch { /* segue para a tela de entrada mesmo assim */ }
+    router.replace('/entrar');
+    router.refresh();
+  }
 
   return (
     <aside className="sidebar" data-collapsed={collapsed}>
@@ -47,7 +57,7 @@ export function Sidebar({ user }: { user: { name: string; email: string } }) {
           <span className={collapsed ? 'sr-only' : 'sidebar-user-name'}>{user.name}</span>
         </div>
         <button type="button" className="sidebar-toggle" aria-label="Sair" title="Sair"
-          onClick={async () => { await authClient.signOut(); router.replace('/entrar'); router.refresh(); }}>
+          onClick={sair}>
           <Icon name="logout" />
         </button>
       </div>
