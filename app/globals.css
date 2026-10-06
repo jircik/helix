@@ -371,7 +371,9 @@ tr[aria-selected="true"] { background: var(--surface-2); box-shadow: inset 3px 0
   .sidebar-heading, .sidebar[data-collapsed="true"] .sidebar-heading { flex-direction: row; margin: 0 0 14px; }
   .sidebar[data-collapsed="true"] { padding-inline: 20px; }
   .sidebar[data-collapsed="true"] .nav a { width: 44px; }
-  .sidebar-footer { display: none; }
+  /* O rodapé guarda o usuário e o Sair: no mobile fica visível, em linha compacta (só o avatar). */
+  .sidebar-footer, .sidebar[data-collapsed="true"] .sidebar-footer { margin-top: 0; padding: 8px 0 4px; justify-content: space-between; }
+  .sidebar-footer .sidebar-user-name { display: none; }
   .settings-layout { grid-template-columns: 1fr; }
   .settings-nav { padding: 16px 20px; flex-direction: row; align-items: center; border-right: 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
   .settings-nav > .mono { margin: 0 12px 0 0; }
@@ -514,3 +516,15 @@ tr:focus-visible .row-action, .row-action:focus-visible { color: var(--text); bo
 .theme-preview[data-preview="sistema"] .theme-preview-line { background: linear-gradient(105deg, #d8d8d2 50%, #3a3a35 50%); }
 .pipeline-card-open { padding: 0; border: 0; background: transparent; color: var(--text); font-size: 12px; font-weight: 500; text-align: left; }
 .pipeline-card-open:hover { text-decoration: underline; }
+
+.auth-shell { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; background: var(--bg); }
+.auth-card { width: min(400px, 100%); padding: 32px; }
+.auth-card h1 { font-size: 22px; font-weight: 500; margin: 8px 0 24px; }
+.auth-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; font-weight: 600; letter-spacing: .08em; }
+.auth-form { display: grid; gap: 14px; }
+.auth-form .btn { justify-content: center; margin-top: 6px; }
+.auth-switch { margin-top: 20px; font-size: 12px; color: var(--text-muted); }
+.auth-switch a { color: var(--text); text-decoration: underline; }
+.sidebar-user { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.sidebar-avatar { width: 26px; height: 26px; flex: none; display: grid; place-items: center; border: 1px solid var(--line); font-size: 11px; font-weight: 600; text-transform: uppercase; }
+.sidebar-user-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }

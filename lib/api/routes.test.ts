@@ -1,6 +1,6 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { createTestDb, type HelixDb } from '@/lib/db/client';
-import { seedStages } from '@/lib/db/seed';
+import { createTestUser } from '@/lib/db/test-users';
 import { leads } from '@/lib/db/schema';
 import { GET as list } from '@/app/api/leads/route';
 import { PATCH as patch } from '@/app/api/leads/[id]/route';
@@ -13,11 +13,18 @@ let close: () => void;
 vi.mock('@/lib/db/client', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/lib/db/client')>(), getDb: () => db,
 }));
-beforeEach(() => { ({ db, close } = createTestDb()); seedStages(db); });
+const sessionUser = vi.hoisted(() => ({ id: 'user-a' as string | null }));
+vi.mock('@/lib/auth/session', () => ({ getSessionUserId: async () => sessionUser.id }));
+beforeEach(() => { ({ db, close } = createTestDb()); createTestUser(db); sessionUser.id = 'user-a'; });
 afterEach(() => close());
 const NOW = '2026-09-07T12:00:00.000Z';
-function lead(name: string) { return db.insert(leads).values({ name, temperature: 'quente', capturedAt: NOW, createdAt: NOW, updatedAt: NOW }).returning().get(); }
+function lead(name: string) { return db.insert(leads).values({ userId: 'user-a', name, temperature: 'quente', capturedAt: NOW, createdAt: NOW, updatedAt: NOW }).returning().get(); }
 describe('rotas reais com banco em memória', () => {
+  it('sem sessão, toda rota responde 401', async () => {
+    sessionUser.id = null;
+    const res = await list(new Request('http://localhost/api/leads'));
+    expect(res.status).toBe(401);
+  });
   it('não permite criar histórico de mudança de etapa manualmente', async () => {
     const first = lead('Original');
     const res = await activity(new Request('http://localhost/api/leads/1/activities', { method: 'POST', body: JSON.stringify({ kind: 'stage_change', body: 'Inventado' }) }), { params: Promise.resolve({ id: String(first.id) }) });

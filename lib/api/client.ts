@@ -1,4 +1,9 @@
 async function parse<T>(res: Response): Promise<T> {
+  if (res.status === 401 && typeof window !== 'undefined') {
+    const next = window.location.pathname + window.location.search;
+    window.location.assign('/entrar?next=' + encodeURIComponent(next));
+    throw new Error('Sua sessão expirou. Entre novamente.');
+  }
   let body: unknown;
   try { body = await res.json(); } catch { throw new Error(`Resposta inválida do servidor (${res.status}).`); }
   if (!res.ok) {

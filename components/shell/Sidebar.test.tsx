@@ -3,10 +3,14 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Sidebar } from './Sidebar';
 
-vi.mock('next/navigation', () => ({ usePathname: () => '/configuracoes/etapa' }));
+const router = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn() }));
+vi.mock('next/navigation', () => ({ usePathname: () => '/configuracoes/etapa', useRouter: () => router }));
+const signOut = vi.hoisted(() => vi.fn(async () => ({ data: {}, error: null })));
+vi.mock('@/lib/auth/client', () => ({ authClient: { signOut } }));
+const USER = { name: 'Ana Souza', email: 'ana@teste.dev' };
 describe('sidebar recolhível', () => {
   it('alterna entre a marca por escrito e somente o símbolo', async () => {
-    render(<Sidebar />);
+    render(<Sidebar user={USER} />);
     const brand = screen.getByRole('link', { name: 'Helix — início' });
     expect(brand.textContent).toBe('HELIX');
     expect(brand.querySelector('svg')).toBeNull();
@@ -17,11 +21,24 @@ describe('sidebar recolhível', () => {
     expect(brand.textContent).toBe('HELIX');
   });
   it('mantém nomes acessíveis, ícones e a seção ativa ao recolher', async () => {
-    render(<Sidebar />);
+    render(<Sidebar user={USER} />);
     await userEvent.click(screen.getByRole('button', { name: 'Recolher menu' }));
     const settings = screen.getByRole('link', { name: 'Configurações' });
     expect(settings.getAttribute('aria-current')).toBe('page');
     expect(settings.querySelector('svg')).not.toBeNull();
     expect(screen.getByRole('link', { name: 'Explorar' }).getAttribute('title')).toBe('Explorar');
+  });
+  it('mostra o usuário e sai da conta', async () => {
+    render(<Sidebar user={USER} />);
+    expect(screen.getByText('Ana Souza')).toBeDefined();
+    await userEvent.click(screen.getByRole('button', { name: 'Sair' }));
+    expect(signOut).toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith('/entrar');
+  });
+
+  it('recolhida mostra só a inicial', async () => {
+    render(<Sidebar user={USER} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Recolher menu' }));
+    expect(screen.getByText('A').className).toContain('sidebar-avatar');
   });
 });

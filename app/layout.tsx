@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { Sidebar } from '@/components/shell/Sidebar';
 import { THEME_BOOT_SCRIPT } from '@/lib/theme';
 import '@fontsource/inter/400.css';
 import '@fontsource/inter/500.css';
@@ -20,12 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Antes da primeira pintura: sem isto o app pisca branco ao carregar. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
-      <body>
-        <div className="shell">
-          <Sidebar />
-          <main className="main">{children}</main>
-        </div>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

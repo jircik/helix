@@ -7,5 +7,7 @@ export default function SettingsPage() {
       <p>Defina nomes, cores, ordem e quais etapas representam negócios ganhos ou perdidos.</p><span className="settings-card-action">Configurar etapas →</span></Link>
     <Link className="panel settings-card" href="/configuracoes/aparencia"><span className="mono">Interface</span><h2>Aparência <span aria-hidden="true">↗</span></h2>
       <p>Escolha entre o tema claro, o escuro ou deixe acompanhar o sistema.</p><span className="settings-card-action">Escolher tema →</span></Link>
+    <Link className="panel settings-card" href="/configuracoes/conta"><span className="mono">Acesso</span><h2>Conta <span aria-hidden="true">↗</span></h2>
+      <p>Nome, senha e sessão. Também é onde você gera ou remove os dados de exemplo.</p><span className="settings-card-action">Abrir conta →</span></Link>
   </div>;
 }

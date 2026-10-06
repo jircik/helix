@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Icon, type IconName } from '@/components/ui/Icon';
+import { authClient } from '@/lib/auth/client';
 import { Logo } from '@/components/ui/Logo';
 
 const LINKS: { href: string; label: string; icon: IconName }[] = [
@@ -14,8 +15,9 @@ const LINKS: { href: string; label: string; icon: IconName }[] = [
   { href: '/configuracoes', label: 'Configurações', icon: 'settings' },
 ];
 
-export function Sidebar() {
+export function Sidebar({ user }: { user: { name: string; email: string } }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -39,7 +41,16 @@ export function Sidebar() {
           </Link>
         ))}
       </nav>
-      <div className="sidebar-footer"><span className="status-dot" /><span className={collapsed ? 'sr-only' : 'mono'}>Workspace local</span></div>
+      <div className="sidebar-footer">
+        <div className="sidebar-user" title={collapsed ? `${user.name} · ${user.email}` : undefined}>
+          <span className="sidebar-avatar" aria-hidden="true">{user.name.trim().charAt(0) || '?'}</span>
+          <span className={collapsed ? 'sr-only' : 'sidebar-user-name'}>{user.name}</span>
+        </div>
+        <button type="button" className="sidebar-toggle" aria-label="Sair" title="Sair"
+          onClick={async () => { await authClient.signOut(); router.replace('/entrar'); router.refresh(); }}>
+          <Icon name="logout" />
+        </button>
+      </div>
     </aside>
   );
 }
