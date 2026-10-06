@@ -1,4 +1,4 @@
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { HelixDb } from '@/lib/db/client';
 import { leads, leadSearches, searches, searchPresets, TEMPERATURES, type Lead, type Temperature } from '@/lib/db/schema';
 import { fetchPlaces, PlacesFetchError, validateQuery, type PlacesDeps } from '@/lib/places/client';
@@ -57,6 +57,7 @@ export function applyClientFilters(rows: Lead[], filters: ClientFilters): Lead[]
 
 export async function runSearch(
   db: HelixDb,
+  userId: string,
   input: RunSearchInput,
   deps: RunSearchDeps,
 ): Promise<RunSearchResult> {
@@ -80,11 +81,12 @@ export async function runSearch(
   }
   if (input.presetId != null) {
     v.integer(input.presetId, 'Preset');
-    if (!db.select().from(searchPresets).where(eq(searchPresets.id, input.presetId)).get()) throw new Error('Preset não encontrado.');
+    if (!db.select().from(searchPresets).where(and(eq(searchPresets.id, input.presetId), eq(searchPresets.userId, userId))).get()) throw new Error('Preset não encontrado.');
   }
 
   // A busca é gravada antes da chamada para que a falha também fique registrada.
   const search = db.insert(searches).values({
+    userId,
     presetId: input.presetId ?? null,
     textQuery: input.textQuery,
     includedType: input.includedType ?? null,
@@ -116,7 +118,7 @@ export async function runSearch(
     .map(normalize)
     .filter((p): p is NonNullable<typeof p> => p !== null);
 
-  const outcomes = upsertPlaces(db, normalized, now);
+  const outcomes = upsertPlaces(db, userId, normalized, now);
   const newCount = outcomes.filter((o) => o.wasNew).length;
 
   if (outcomes.length > 0) {

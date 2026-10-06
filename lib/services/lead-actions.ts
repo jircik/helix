@@ -8,6 +8,7 @@ import * as v from '@/lib/validate';
 /** Move o lead e registra a mudança na timeline automaticamente. */
 export function moveLeadToStage(
   db: HelixDb,
+  userId: string,
   leadId: number,
   stageId: number,
   now: string,
@@ -15,18 +16,18 @@ export function moveLeadToStage(
   v.integer(leadId, 'Lead');
   v.integer(stageId, 'Etapa');
   return db.transaction((db) => {
-  const lead = getLead(db, leadId);
+  const lead = getLead(db, userId, leadId);
   if (!lead) throw new Error(`Lead ${leadId} não encontrado.`);
 
-  const destination = getStage(db, stageId);
+  const destination = getStage(db, userId, stageId);
   if (!destination) throw new Error(`Etapa ${stageId} não encontrada.`);
 
   if (lead.stageId === stageId) return lead;
 
-  const origin = lead.stageId ? getStage(db, lead.stageId) : null;
-  const updated = updateUserBlock(db, leadId, { stageId }, now);
+  const origin = lead.stageId ? getStage(db, userId, lead.stageId) : null;
+  const updated = updateUserBlock(db, userId, leadId, { stageId }, now);
 
-  addActivity(db, {
+  addActivity(db, userId, {
     leadId,
     kind: 'stage_change',
     body: `${origin?.name ?? 'Sem etapa'} → ${destination.name}`,
@@ -37,15 +38,15 @@ export function moveLeadToStage(
 }
 
 /** Edição do painel e movimentação compartilham a mesma transação e histórico. */
-export function editLead(db: HelixDb, id: number, patch: UserBlockPatch, now: string): Lead {
+export function editLead(db: HelixDb, userId: string, id: number, patch: UserBlockPatch, now: string): Lead {
   v.object(patch);
   const { stageId, ...fields } = patch;
   return db.transaction((tx) => {
-    updateUserBlock(tx, id, fields, now);
+    updateUserBlock(tx, userId, id, fields, now);
     if ('stageId' in patch) {
       if (stageId == null) throw new Error('Escolha uma etapa para o lead.');
-      moveLeadToStage(tx, id, stageId, now);
+      moveLeadToStage(tx, userId, id, stageId, now);
     }
-    return getLead(tx, id)!;
+    return getLead(tx, userId, id)!;
   });
 }

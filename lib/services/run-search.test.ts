@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createTestDb, type HelixDb } from '@/lib/db/client';
 import { leads, searches, leadSearches, type Lead } from '@/lib/db/schema';
-import { seedStages } from '@/lib/db/seed';
+import { createTestUser } from '@/lib/db/test-users';
 import { applyClientFilters, runSearch } from './run-search';
 import type { SearchTextResponse } from '@/lib/places/types';
 
@@ -9,12 +9,13 @@ let close: () => void;
 function freshDb(): HelixDb {
   const t = createTestDb();
   close = t.close;
-  seedStages(t.db);
+  createTestUser(t.db);
   return t.db;
 }
 afterEach(() => close?.());
 
 const NOW = '2026-09-06T12:00:00.000Z';
+const U = 'user-a';
 const deps = (fetchFn: unknown) => ({
   apiKey: 'k',
   fetchFn: fetchFn as typeof fetch,
@@ -37,7 +38,7 @@ const RESULTADOS: SearchTextResponse = {
 
 function lead(over: Partial<Lead>): Lead {
   return {
-    id: 1, placeId: 'x', name: 'X', formattedAddress: null, lat: null, lng: null,
+    id: 1, userId: 'user-a', isSample: false, placeId: 'x', name: 'X', formattedAddress: null, lat: null, lng: null,
     phone: null, websiteUri: null, rating: null, userRatingCount: null,
     businessStatus: 'OPERATIONAL', primaryType: null, primaryTypeDisplay: null,
     googleMapsUri: null, rawJson: '{}', capturedAt: NOW, temperature: 'quente',
@@ -99,7 +100,7 @@ describe('runSearch', () => {
     const db = freshDb();
     const fetchFn = vi.fn().mockResolvedValue(ok(RESULTADOS));
 
-    await runSearch(db, {
+    await runSearch(db, U, {
       textQuery: 'barbearia Pinheiros',
       filters: { temperatures: ['quente'] },
     }, deps(fetchFn));
@@ -113,7 +114,7 @@ describe('runSearch', () => {
     const db = freshDb();
     const fetchFn = vi.fn().mockResolvedValue(ok(RESULTADOS));
 
-    const out = await runSearch(db, {
+    const out = await runSearch(db, U, {
       textQuery: 'barbearia',
       filters: { temperatures: ['quente'] },
     }, deps(fetchFn));
@@ -126,7 +127,7 @@ describe('runSearch', () => {
     const db = freshDb();
     const fetchFn = vi.fn().mockResolvedValue(ok(RESULTADOS));
 
-    const out = await runSearch(db, {
+    const out = await runSearch(db, U, {
       textQuery: 'barbearia Pinheiros',
       includedType: 'barber_shop',
       minRating: 4,
@@ -153,7 +154,7 @@ describe('runSearch', () => {
     const db = freshDb();
     const fetchFn = vi.fn().mockResolvedValue(ok(RESULTADOS));
 
-    const out = await runSearch(db, { textQuery: 'x' }, deps(fetchFn));
+    const out = await runSearch(db, U, { textQuery: 'x' }, deps(fetchFn));
 
     const joins = db.select().from(leadSearches).all();
     expect(joins).toHaveLength(3);
@@ -165,8 +166,8 @@ describe('runSearch', () => {
     const db = freshDb();
     const fetchFn = vi.fn().mockResolvedValue(ok(RESULTADOS));
 
-    await runSearch(db, { textQuery: 'x' }, deps(fetchFn));
-    const out = await runSearch(db, { textQuery: 'x' }, deps(fetchFn));
+    await runSearch(db, U, { textQuery: 'x' }, deps(fetchFn));
+    const out = await runSearch(db, U, { textQuery: 'x' }, deps(fetchFn));
 
     expect(out.newCount).toBe(0);
     expect(db.select().from(leads).all()).toHaveLength(3);
@@ -183,7 +184,7 @@ describe('runSearch', () => {
     } as Response);
 
     await expect(
-      runSearch(db, { textQuery: 'x' }, deps(fetchFn)),
+      runSearch(db, U, { textQuery: 'x' }, deps(fetchFn)),
     ).rejects.toThrow(/429/);
 
     const row = db.select().from(searches).all()[0];

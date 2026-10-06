@@ -1,16 +1,17 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { createTestDb, type HelixDb } from '@/lib/db/client';
 import { leads, leadSearches, searches, stages } from '@/lib/db/schema';
-import { seedStages } from '@/lib/db/seed';
+import { createTestUser } from '@/lib/db/test-users';
 import {
   listLeads, getLead, updateUserBlock, countByTemperature, DEFAULT_LIST_INPUT,
 } from './leads';
 
+const U = 'user-a';
 let close: () => void;
 function freshDb(): HelixDb {
   const t = createTestDb();
   close = t.close;
-  seedStages(t.db);
+  createTestUser(t.db);
   return t.db;
 }
 afterEach(() => close?.());
@@ -20,6 +21,7 @@ const LATER = '2026-09-07T12:00:00.000Z';
 
 function insert(db: HelixDb, over: Record<string, unknown> = {}) {
   return db.insert(leads).values({
+    userId: U,
     placeId: `p${Math.random()}`,
     name: 'Lead',
     temperature: 'quente',
@@ -35,7 +37,7 @@ describe('listLeads', () => {
     insert(db, { name: 'Frio', temperature: 'frio' });
     insert(db, { name: 'Descartado', temperature: 'quente', verification: 'descartado' });
 
-    const out = listLeads(db, DEFAULT_LIST_INPUT);
+    const out = listLeads(db, U, DEFAULT_LIST_INPUT);
     expect(out.rows.map((r) => r.name)).toEqual(['Quente']);
     expect(out.total).toBe(1);
   });
@@ -46,7 +48,7 @@ describe('listLeads', () => {
     insert(db, { name: 'B', temperature: 'morno' });
     insert(db, { name: 'C', temperature: 'frio' });
 
-    const out = listLeads(db, { temperatures: ['quente', 'morno'] });
+    const out = listLeads(db, U, { temperatures: ['quente', 'morno'] });
     expect(out.rows.map((r) => r.name).sort()).toEqual(['A', 'B']);
   });
 
@@ -56,7 +58,7 @@ describe('listLeads', () => {
     insert(db, { name: 'Na etapa 2', stageId: etapas[1].id });
     insert(db, { name: 'Na etapa 1', stageId: etapas[0].id });
 
-    const out = listLeads(db, { stageId: etapas[1].id });
+    const out = listLeads(db, U, { stageId: etapas[1].id });
     expect(out.rows.map((r) => r.name)).toEqual(['Na etapa 2']);
   });
 
@@ -65,16 +67,16 @@ describe('listLeads', () => {
     insert(db, { name: 'Barbearia Valentins', formattedAddress: 'Rua Teodoro, 10' });
     insert(db, { name: 'Academia Forma', formattedAddress: 'Av. Paulista, 900' });
 
-    expect(listLeads(db, { search: 'valentins' }).rows).toHaveLength(1);
-    expect(listLeads(db, { search: 'PAULISTA' }).rows).toHaveLength(1);
-    expect(listLeads(db, { search: 'inexistente' }).rows).toHaveLength(0);
+    expect(listLeads(db, U, { search: 'valentins' }).rows).toHaveLength(1);
+    expect(listLeads(db, U, { search: 'PAULISTA' }).rows).toHaveLength(1);
+    expect(listLeads(db, U, { search: 'inexistente' }).rows).toHaveLength(0);
   });
 
   it('pagina e devolve o total sem paginação', () => {
     const db = freshDb();
     for (let i = 0; i < 25; i++) insert(db, { name: `Lead ${i}` });
 
-    const out = listLeads(db, { limit: 10, offset: 20 });
+    const out = listLeads(db, U, { limit: 10, offset: 20 });
     expect(out.rows).toHaveLength(5);
     expect(out.total).toBe(25);
   });
@@ -84,7 +86,7 @@ describe('listLeads', () => {
     insert(db, { name: 'Velho', updatedAt: NOW });
     insert(db, { name: 'Novo', updatedAt: LATER });
 
-    expect(listLeads(db, {}).rows.map((r) => r.name)).toEqual(['Novo', 'Velho']);
+    expect(listLeads(db, U, {}).rows.map((r) => r.name)).toEqual(['Novo', 'Velho']);
   });
 });
 
@@ -92,11 +94,11 @@ describe('getLead', () => {
   it('devolve o lead pelo id', () => {
     const db = freshDb();
     const row = insert(db, { name: 'Achado' });
-    expect(getLead(db, row.id)?.name).toBe('Achado');
+    expect(getLead(db, U, row.id)?.name).toBe('Achado');
   });
 
   it('devolve null quando não existe', () => {
-    expect(getLead(freshDb(), 999)).toBeNull();
+    expect(getLead(freshDb(), U, 999)).toBeNull();
   });
 });
 
@@ -105,7 +107,7 @@ describe('updateUserBlock', () => {
     const db = freshDb();
     const row = insert(db);
 
-    const out = updateUserBlock(db, row.id, {
+    const out = updateUserBlock(db, U, row.id, {
       contactName: 'Maria', notes: 'ligar segunda', whatsapp: '11999999999',
     }, LATER);
 
@@ -118,7 +120,7 @@ describe('updateUserBlock', () => {
     const db = freshDb();
     const row = insert(db);
 
-    const out = updateUserBlock(db, row.id, {
+    const out = updateUserBlock(db, U, row.id, {
       verification: 'descartado', disqualifyReason: 'tem site',
     }, LATER);
 
@@ -129,7 +131,7 @@ describe('updateUserBlock', () => {
   it('não carimba verificação quando ela não muda', () => {
     const db = freshDb();
     const row = insert(db);
-    const out = updateUserBlock(db, row.id, { notes: 'só uma nota' }, LATER);
+    const out = updateUserBlock(db, U, row.id, { notes: 'só uma nota' }, LATER);
     expect(out.verifiedBy).toBeNull();
     expect(out.verifiedAt).toBeNull();
   });
@@ -138,7 +140,7 @@ describe('updateUserBlock', () => {
     const db = freshDb();
     const row = insert(db, { name: 'Original', websiteUri: null, temperature: 'quente' });
 
-    const out = updateUserBlock(db, row.id, {
+    const out = updateUserBlock(db, U, row.id, {
       verification: 'descartado', disqualifyReason: 'achei o site na mão',
     }, LATER);
 
@@ -149,7 +151,7 @@ describe('updateUserBlock', () => {
   });
 
   it('lança erro quando o lead não existe', () => {
-    expect(() => updateUserBlock(freshDb(), 999, { notes: 'x' }, LATER))
+    expect(() => updateUserBlock(freshDb(), U, 999, { notes: 'x' }, LATER))
       .toThrow(/999/);
   });
 });
@@ -161,14 +163,14 @@ describe('countByTemperature', () => {
     insert(db, { temperature: 'quente' });
     insert(db, { temperature: 'morno' });
 
-    expect(countByTemperature(db)).toEqual({ quente: 2, morno: 1, frio: 0 });
+    expect(countByTemperature(db, U)).toEqual({ quente: 2, morno: 1, frio: 0 });
   });
 });
 
 describe('listLeads por busca', () => {
   function insertSearch(db: HelixDb, textQuery: string) {
     return db.insert(searches).values({
-      textQuery, filtersJson: '{}', executedAt: NOW,
+      userId: U, textQuery, filtersJson: '{}', executedAt: NOW,
     }).returning().get();
   }
   function link(db: HelixDb, leadId: number, searchId: number, wasNew = true) {
@@ -184,7 +186,7 @@ describe('listLeads por busca', () => {
     link(db, a.id, busca.id);
     link(db, b.id, outra.id);
 
-    const out = listLeads(db, { searchId: busca.id });
+    const out = listLeads(db, U, { searchId: busca.id });
     expect(out.rows.map((row) => row.name)).toEqual(['Da busca']);
     expect(out.total).toBe(1);
   });
@@ -197,8 +199,8 @@ describe('listLeads por busca', () => {
     link(db, lead.id, primeira.id, true);
     link(db, lead.id, segunda.id, false);
 
-    expect(listLeads(db, { searchId: primeira.id }).rows).toHaveLength(1);
-    expect(listLeads(db, { searchId: segunda.id }).rows).toHaveLength(1);
+    expect(listLeads(db, U, { searchId: primeira.id }).rows).toHaveLength(1);
+    expect(listLeads(db, U, { searchId: segunda.id }).rows).toHaveLength(1);
   });
 
   it('não repete o lead quando o join casa mais de uma vez', () => {
@@ -207,7 +209,7 @@ describe('listLeads por busca', () => {
     const busca = insertSearch(db, 'busca');
     link(db, lead.id, busca.id);
 
-    const out = listLeads(db, { searchId: busca.id });
+    const out = listLeads(db, U, { searchId: busca.id });
     expect(out.rows).toHaveLength(1);
     expect(out.total).toBe(1);
   });
@@ -217,7 +219,7 @@ describe('listLeads por busca', () => {
     insert(db, { name: 'Solto' });
     const vazia = insertSearch(db, 'nada encontrou');
 
-    const out = listLeads(db, { searchId: vazia.id });
+    const out = listLeads(db, U, { searchId: vazia.id });
     expect(out.rows).toEqual([]);
     expect(out.total).toBe(0);
   });
@@ -230,13 +232,13 @@ describe('listLeads por busca', () => {
     link(db, quente.id, busca.id);
     link(db, frio.id, busca.id);
 
-    const out = listLeads(db, { searchId: busca.id, temperatures: ['quente'] });
+    const out = listLeads(db, U, { searchId: busca.id, temperatures: ['quente'] });
     expect(out.rows.map((row) => row.name)).toEqual(['Quente']);
   });
 
   it('sem searchId não filtra por busca', () => {
     const db = freshDb();
     insert(db, { name: 'Sem busca nenhuma' });
-    expect(listLeads(db, {}).rows).toHaveLength(1);
+    expect(listLeads(db, U, {}).rows).toHaveLength(1);
   });
 });

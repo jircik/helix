@@ -18,6 +18,4 @@ CREATE TRIGGER leads_fts_update AFTER UPDATE OF name, formatted_address, notes O
   VALUES ('delete', old.id, old.name, old.formatted_address, old.notes);
   INSERT INTO leads_fts(rowid, name, formatted_address, notes)
   VALUES (new.id, new.name, new.formatted_address, new.notes);
-END;--> statement-breakpoint
-INSERT INTO leads_fts(rowid, name, formatted_address, notes)
-SELECT id, name, formatted_address, notes FROM leads;
+END;

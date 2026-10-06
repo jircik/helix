@@ -2,15 +2,16 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { createTestDb, type HelixDb } from '@/lib/db/client';
 import { activities, leads, stages } from '@/lib/db/schema';
-import { seedStages } from '@/lib/db/seed';
+import { createTestUser } from '@/lib/db/test-users';
 import { upsertPlace, upsertPlaces, deleteLeads, listLeads } from './leads';
 import type { NormalizedPlace } from '@/lib/places/types';
 
+const U = 'user-a';
 let close: () => void;
 function freshDb(): HelixDb {
   const t = createTestDb();
   close = t.close;
-  seedStages(t.db);
+  createTestUser(t.db);
   return t.db;
 }
 afterEach(() => close?.());
@@ -32,7 +33,7 @@ function place(over: Partial<NormalizedPlace> = {}): NormalizedPlace {
 describe('upsertPlace', () => {
   it('insere um lead novo e marca wasNew', () => {
     const db = freshDb();
-    const out = upsertPlace(db, place(), T1);
+    const out = upsertPlace(db, U, place(), T1);
 
     expect(out.wasNew).toBe(true);
     const row = db.select().from(leads).all()[0];
@@ -43,7 +44,7 @@ describe('upsertPlace', () => {
 
   it('coloca o lead novo na primeira etapa do funil', () => {
     const db = freshDb();
-    const out = upsertPlace(db, place(), T1);
+    const out = upsertPlace(db, U, place(), T1);
 
     const first = db.select().from(stages).orderBy(stages.position).all()[0];
     const row = db.select().from(leads).where(eq(leads.id, out.leadId)).get()!;
@@ -52,8 +53,8 @@ describe('upsertPlace', () => {
 
   it('não duplica ao reprocessar o mesmo place_id', () => {
     const db = freshDb();
-    const a = upsertPlace(db, place(), T1);
-    const b = upsertPlace(db, place(), T2);
+    const a = upsertPlace(db, U, place(), T1);
+    const b = upsertPlace(db, U, place(), T2);
 
     expect(b.wasNew).toBe(false);
     expect(b.leadId).toBe(a.leadId);
@@ -62,8 +63,8 @@ describe('upsertPlace', () => {
 
   it('atualiza o bloco do Google e renova capturedAt', () => {
     const db = freshDb();
-    upsertPlace(db, place(), T1);
-    upsertPlace(db, place({
+    upsertPlace(db, U, place(), T1);
+    upsertPlace(db, U, place({
       name: 'Barbearia Um — Matriz',
       websiteUri: 'https://barbeariaum.com.br',
       temperature: 'frio',
@@ -81,7 +82,7 @@ describe('upsertPlace', () => {
 
   it('NUNCA ressuscita o bloco do usuário na re-busca', () => {
     const db = freshDb();
-    const { leadId } = upsertPlace(db, place(), T1);
+    const { leadId } = upsertPlace(db, U, place(), T1);
 
     const etapas = db.select().from(stages).orderBy(stages.position).all();
     db.update(leads).set({
@@ -96,7 +97,7 @@ describe('upsertPlace', () => {
       nextActionAt: T2,
     }).where(eq(leads.id, leadId)).run();
 
-    upsertPlace(db, place({ rating: 5 }), T2);
+    upsertPlace(db, U, place({ rating: 5 }), T2);
 
     const row = db.select().from(leads).where(eq(leads.id, leadId)).get()!;
     expect(row.verification).toBe('descartado');
@@ -111,8 +112,8 @@ describe('upsertPlace', () => {
 
   it('preserva createdAt do primeiro encontro', () => {
     const db = freshDb();
-    upsertPlace(db, place(), T1);
-    upsertPlace(db, place(), T2);
+    upsertPlace(db, U, place(), T1);
+    upsertPlace(db, U, place(), T2);
     expect(db.select().from(leads).all()[0].createdAt).toBe(T1);
   });
 });
@@ -120,9 +121,9 @@ describe('upsertPlace', () => {
 describe('upsertPlaces', () => {
   it('processa um lote e reporta quais eram inéditos', () => {
     const db = freshDb();
-    upsertPlace(db, place({ placeId: 'ChIJ1' }), T1);
+    upsertPlace(db, U, place({ placeId: 'ChIJ1' }), T1);
 
-    const out = upsertPlaces(db, [
+    const out = upsertPlaces(db, U, [
       place({ placeId: 'ChIJ1' }),
       place({ placeId: 'ChIJ2', name: 'Dois' }),
       place({ placeId: 'ChIJ3', name: 'Três' }),
@@ -134,7 +135,7 @@ describe('upsertPlaces', () => {
 
   it('deduplica place_id repetido dentro do mesmo lote', () => {
     const db = freshDb();
-    const out = upsertPlaces(db, [
+    const out = upsertPlaces(db, U, [
       place({ placeId: 'ChIJ9' }),
       place({ placeId: 'ChIJ9' }),
     ], T1);
@@ -148,7 +149,7 @@ describe('upsertPlaces', () => {
 
 describe('deleteLeads', () => {
   function tres(db: HelixDb): number[] {
-    return upsertPlaces(db, [
+    return upsertPlaces(db, U, [
       place({ placeId: 'ChIJ1', name: 'Um' }),
       place({ placeId: 'ChIJ2', name: 'Dois' }),
       place({ placeId: 'ChIJ3', name: 'Três' }),
@@ -159,7 +160,7 @@ describe('deleteLeads', () => {
     const db = freshDb();
     const [um, dois] = tres(db);
 
-    expect(deleteLeads(db, { ids: [um, dois] })).toBe(2);
+    expect(deleteLeads(db, U, { ids: [um, dois] })).toBe(2);
     expect(db.select().from(leads).all().map((l) => l.name)).toEqual(['Três']);
   });
 
@@ -168,7 +169,7 @@ describe('deleteLeads', () => {
     tres(db);
     db.update(leads).set({ temperature: 'frio' }).where(eq(leads.placeId, 'ChIJ3')).run();
 
-    expect(deleteLeads(db, { temperatures: ['quente'] })).toBe(2);
+    expect(deleteLeads(db, U, { temperatures: ['quente'] })).toBe(2);
     expect(db.select().from(leads).all().map((l) => l.name)).toEqual(['Três']);
   });
 
@@ -177,7 +178,7 @@ describe('deleteLeads', () => {
     const [um, , tresId] = tres(db);
     db.update(leads).set({ temperature: 'frio' }).where(eq(leads.id, tresId)).run();
 
-    expect(deleteLeads(db, { ids: [um, tresId], temperatures: ['quente'] })).toBe(1);
+    expect(deleteLeads(db, U, { ids: [um, tresId], temperatures: ['quente'] })).toBe(1);
     expect(db.select().from(leads).all()).toHaveLength(2);
   });
 
@@ -185,7 +186,7 @@ describe('deleteLeads', () => {
     const db = freshDb();
     tres(db);
 
-    expect(() => deleteLeads(db, {})).toThrow(/delimite/i);
+    expect(() => deleteLeads(db, U, {})).toThrow(/delimite/i);
     expect(db.select().from(leads).all()).toHaveLength(3);
   });
 
@@ -193,7 +194,7 @@ describe('deleteLeads', () => {
     const db = freshDb();
     tres(db);
 
-    expect(deleteLeads(db, { ids: [] })).toBe(0);
+    expect(deleteLeads(db, U, { ids: [] })).toBe(0);
     expect(db.select().from(leads).all()).toHaveLength(3);
   });
 
@@ -201,7 +202,7 @@ describe('deleteLeads', () => {
     const db = freshDb();
     tres(db);
 
-    expect(() => deleteLeads(db, { ids: [0] })).toThrow(/Lead/);
+    expect(() => deleteLeads(db, U, { ids: [0] })).toThrow(/Lead/);
     expect(db.select().from(leads).all()).toHaveLength(3);
   });
 
@@ -209,9 +210,9 @@ describe('deleteLeads', () => {
     const db = freshDb();
     const [um] = tres(db);
 
-    deleteLeads(db, { ids: [um] });
-    expect(listLeads(db, { search: 'Um' }).total).toBe(0);
-    expect(listLeads(db, { search: 'Dois' }).total).toBe(1);
+    deleteLeads(db, U, { ids: [um] });
+    expect(listLeads(db, U, { search: 'Um' }).total).toBe(0);
+    expect(listLeads(db, U, { search: 'Dois' }).total).toBe(1);
   });
 
   it('leva junto as atividades do lead', () => {
@@ -221,7 +222,7 @@ describe('deleteLeads', () => {
       leadId: um, kind: 'nota', body: 'ligou', occurredAt: T1, createdAt: T1,
     }).run();
 
-    deleteLeads(db, { ids: [um] });
+    deleteLeads(db, U, { ids: [um] });
     expect(db.select().from(activities).all()).toHaveLength(0);
   });
 });

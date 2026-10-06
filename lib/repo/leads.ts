@@ -10,8 +10,9 @@ export interface UpsertOutcome {
   wasNew: boolean;
 }
 
-function firstStageId(db: HelixDb): number | null {
-  const first = db.select().from(stages).orderBy(asc(stages.position)).limit(1).get();
+function firstStageId(db: HelixDb, userId: string): number | null {
+  const first = db.select().from(stages).where(eq(stages.userId, userId))
+    .orderBy(asc(stages.position)).limit(1).get();
   return first?.id ?? null;
 }
 
@@ -24,12 +25,13 @@ function firstStageId(db: HelixDb): number | null {
  */
 export function upsertPlace(
   db: HelixDb,
+  userId: string,
   place: NormalizedPlace,
   now: string,
 ): UpsertOutcome {
   const existing = db.select({ id: leads.id })
     .from(leads)
-    .where(eq(leads.placeId, place.placeId))
+    .where(and(eq(leads.userId, userId), eq(leads.placeId, place.placeId)))
     .get();
 
   const googleBlock = {
@@ -57,9 +59,10 @@ export function upsertPlace(
   }
 
   const inserted = db.insert(leads).values({
+    userId,
     placeId: place.placeId,
     ...googleBlock,
-    stageId: firstStageId(db),
+    stageId: firstStageId(db, userId),
     verification: 'pendente',
     createdAt: now,
   }).returning({ id: leads.id }).get();
@@ -69,10 +72,11 @@ export function upsertPlace(
 
 export function upsertPlaces(
   db: HelixDb,
+  userId: string,
   places: NormalizedPlace[],
   now: string,
 ): UpsertOutcome[] {
-  return db.transaction((tx) => places.map((place) => upsertPlace(tx, place, now)));
+  return db.transaction((tx) => places.map((place) => upsertPlace(tx, userId, place, now)));
 }
 
 
@@ -134,12 +138,11 @@ function listConditions(input: ListLeadsInput): SQL[] {
   return parts;
 }
 
-export function listLeads(db: HelixDb, input: ListLeadsInput): ListLeadsResult {
+export function listLeads(db: HelixDb, userId: string, input: ListLeadsInput): ListLeadsResult {
   v.integer(input.limit ?? 50, 'Limite', 1, 500);
   v.integer(input.offset ?? 0, 'Página', 0);
   if (input.stageId != null) v.integer(input.stageId, 'Etapa');
-  const parts = listConditions(input);
-  const where = parts.length ? and(...parts) : undefined;
+  const where = and(eq(leads.userId, userId), ...listConditions(input));
 
   const total = db.select({ value: count() }).from(leads).where(where).get()?.value ?? 0;
 
@@ -163,15 +166,16 @@ export function listLeads(db: HelixDb, input: ListLeadsInput): ListLeadsResult {
  *
  * Sem nenhuma condição a chamada é recusada: um recorte vazio apagaria a base.
  */
-export function deleteLeads(db: HelixDb, input: ListLeadsInput): number {
+export function deleteLeads(db: HelixDb, userId: string, input: ListLeadsInput): number {
   const parts = listConditions(input);
+  // O escopo do usuário não conta como recorte: sem filtro, apagaria a base inteira dele.
   if (!parts.length) throw new Error('Delimite quais leads apagar.');
 
-  return db.delete(leads).where(and(...parts)).returning({ id: leads.id }).all().length;
+  return db.delete(leads).where(and(eq(leads.userId, userId), ...parts)).returning({ id: leads.id }).all().length;
 }
 
-export function getLead(db: HelixDb, id: number): Lead | null {
-  return db.select().from(leads).where(eq(leads.id, id)).get() ?? null;
+export function getLead(db: HelixDb, userId: string, id: number): Lead | null {
+  return db.select().from(leads).where(and(eq(leads.id, id), eq(leads.userId, userId))).get() ?? null;
 }
 
 export interface UserBlockPatch {
@@ -194,6 +198,7 @@ export interface UserBlockPatch {
  */
 export function updateUserBlock(
   db: HelixDb,
+  userId: string,
   id: number,
   patch: UserBlockPatch,
   now: string,
@@ -202,7 +207,7 @@ export function updateUserBlock(
   const raw = v.object(patch);
   const textFields = ['disqualifyReason', 'contactName', 'email', 'instagram', 'whatsapp', 'notes', 'nextAction'] as const;
   v.keys(raw, [...textFields, 'stageId', 'verification', 'nextActionAt']);
-  const current = getLead(db, id);
+  const current = getLead(db, userId, id);
   if (!current) throw new Error(`Lead ${id} não encontrado.`);
 
   const values: Record<string, unknown> = { updatedAt: now };
@@ -212,7 +217,8 @@ export function updateUserBlock(
   if ('verification' in raw) values.verification = v.choice(raw.verification, VERIFICATIONS, 'Verificação');
   if ('stageId' in raw) {
     values.stageId = raw.stageId == null ? null : v.integer(raw.stageId, 'Etapa');
-    if (values.stageId != null && !db.select().from(stages).where(eq(stages.id, values.stageId as number)).get()) {
+    if (values.stageId != null && !db.select({ id: stages.id }).from(stages)
+      .where(and(eq(stages.id, values.stageId as number), eq(stages.userId, userId))).get()) {
       throw new Error(`Etapa ${values.stageId} não encontrada.`);
     }
   }
@@ -226,14 +232,15 @@ export function updateUserBlock(
     values.verifiedAt = patch.verification === 'pendente' ? null : now;
   }
 
-  db.update(leads).set(values).where(eq(leads.id, id)).run();
-  return getLead(db, id)!;
+  db.update(leads).set(values).where(and(eq(leads.id, id), eq(leads.userId, userId))).run();
+  return getLead(db, userId, id)!;
 }
 
-export function countByTemperature(db: HelixDb): Record<Temperature, number> {
+export function countByTemperature(db: HelixDb, userId: string): Record<Temperature, number> {
   const rows = db
     .select({ temperature: leads.temperature, value: count() })
     .from(leads)
+    .where(eq(leads.userId, userId))
     .groupBy(leads.temperature)
     .all();
 

@@ -14,9 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "node --import tsx lib/db/migrate.ts",
-    "db:seed": "node --import tsx lib/db/seed-cli.ts",
-    "db:seed:fake": "node --import tsx scripts/seed-fake.ts"
+    "db:migrate": "node --import tsx lib/db/migrate.ts"
   },
   "dependencies": {
     "@fontsource/dm-mono": "^5.3.0",
@@ -24,6 +22,7 @@
     "@next/env": "^16.3.4",
     "@radix-ui/react-select": "^2.3.7",
     "@vis.gl/react-google-maps": "^1.10.0",
+    "better-auth": "1.7.7",
     "better-sqlite3": "^13.0.3",
     "drizzle-orm": "^0.45.2",
     "next": "16.3.4",
