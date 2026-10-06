@@ -10,7 +10,9 @@ type Feedback = { kind: 'ok' | 'erro'; text: string } | null;
 
 function FeedbackLine({ value }: { value: Feedback }) {
   if (!value) return null;
-  return value.kind === 'erro' ? <p role="alert" className="error">{value.text}</p> : <p className="mono">{value.text}</p>;
+  return value.kind === 'erro'
+    ? <p role="alert" className="error account-feedback">{value.text}</p>
+    : <p role="status" className="account-feedback">{value.text}</p>;
 }
 
 export function AccountView({ user }: { user: { name: string; email: string } }) {
@@ -58,24 +60,30 @@ export function AccountView({ user }: { user: { name: string; email: string } })
   return <div className="view">
     <span className="mono">Seu acesso</span><h1>Conta</h1>
     <p className="page-description">Seus dados de acesso. Sem recuperação por e-mail nesta versão: guarde bem a sua senha.</p>
-    <form className="panel settings-card" onSubmit={salvarNome}>
-      <h2>Perfil</h2>
-      <label className="field"><span>E-mail</span><input value={user.email} readOnly /></label>
-      <label className="field"><span>Nome</span><input name="name" defaultValue={user.name} required /></label>
-      <FeedbackLine value={nomeFeedback} />
-      <button className="btn">Salvar nome</button>
-    </form>
-    <form className="panel settings-card" onSubmit={alterarSenha}>
-      <h2>Senha</h2>
-      <label className="field"><span>Senha atual</span><input name="currentPassword" type="password" required autoComplete="current-password" /></label>
-      <label className="field"><span>Nova senha</span><input name="newPassword" type="password" required minLength={8} autoComplete="new-password" /></label>
-      <FeedbackLine value={senhaFeedback} />
-      <button className="btn">Alterar senha</button>
-    </form>
-    <SampleControls />
-    <div className="panel settings-card">
-      <h2>Sessão</h2>
-      <button type="button" className="btn btn-outline" onClick={sair}>Sair da conta</button>
+    <div className="account">
+      <form className="account-section" onSubmit={salvarNome}>
+        <div className="account-intro"><h2>Perfil</h2><p>Como você aparece no Helix.</p></div>
+        <div className="account-fields">
+          <label className="field"><span>E-mail</span><input className="account-static" value={user.email} readOnly /></label>
+          <label className="field"><span>Nome</span><input name="name" defaultValue={user.name} required /></label>
+          <div className="account-actions"><FeedbackLine value={nomeFeedback} /><button className="btn">Salvar nome</button></div>
+        </div>
+      </form>
+      <form className="account-section" onSubmit={alterarSenha}>
+        <div className="account-intro"><h2>Senha</h2><p>Ao trocar, as outras sessões abertas são encerradas.</p></div>
+        <div className="account-fields">
+          <label className="field"><span>Senha atual</span><input name="currentPassword" type="password" required autoComplete="current-password" /></label>
+          <label className="field"><span>Nova senha</span><input name="newPassword" type="password" required minLength={8} autoComplete="new-password" placeholder="Mínimo de 8 caracteres" /></label>
+          <div className="account-actions"><FeedbackLine value={senhaFeedback} /><button className="btn">Alterar senha</button></div>
+        </div>
+      </form>
+      <SampleControls />
+      <section className="account-section">
+        <div className="account-intro"><h2>Sessão</h2><p>Encerra o acesso neste navegador.</p></div>
+        <div className="account-fields">
+          <div className="account-actions"><button type="button" className="btn btn-outline" onClick={sair}>Sair da conta</button></div>
+        </div>
+      </section>
     </div>
   </div>;
 }
