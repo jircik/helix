@@ -15,7 +15,7 @@ Produção: `https://helix.jircik.dev`, um serviço no Railway com volume.
    - `DATABASE_URL=/data/helix.db`
    - `BACKUP_DIR=/data/backups`
    - `BETTER_AUTH_SECRET=` (gere com `openssl rand -base64 32`)
-   - `BETTER_AUTH_URL=https://helix.jircik.dev` — Must be exactly the public URL, since the app does not fail fast if it's wrong and auth requests from another origin are rejected.
+   - `BETTER_AUTH_URL=https://helix.jircik.dev` — deve ser exatamente a URL pública; o app não falha cedo se estiver errada e requisições de auth vindas de outra origem são recusadas.
    - `GOOGLE_PLACES_KEY=`
    - `NEXT_PUBLIC_GOOGLE_MAPS_KEY=` (precisa existir no build: mudou, faça redeploy)
    - `PLACES_DAILY_LIMIT_PER_USER=6`
