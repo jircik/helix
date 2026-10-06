@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readEnv } from './env';
+import { getQuotaLimits, readEnv } from './env';
 
 describe('readEnv', () => {
   it('lê as três variáveis quando todas estão presentes', () => {
@@ -35,5 +35,17 @@ describe('readEnv', () => {
     expect(() =>
       readEnv({ GOOGLE_PLACES_KEY: 'chave-server', NEXT_PUBLIC_GOOGLE_MAPS_KEY: '  ' }),
     ).toThrow('NEXT_PUBLIC_GOOGLE_MAPS_KEY');
+  });
+});
+
+describe('getQuotaLimits', () => {
+  it('usa 6 por usuário e 30 global por padrão', () => {
+    expect(getQuotaLimits({})).toEqual({ perUser: 6, global: 30 });
+  });
+  it('lê inteiros das variáveis', () => {
+    expect(getQuotaLimits({ PLACES_DAILY_LIMIT_PER_USER: '2', PLACES_DAILY_LIMIT_GLOBAL: '10' })).toEqual({ perUser: 2, global: 10 });
+  });
+  it('recusa valor inválido em vez de liberar a cota', () => {
+    expect(() => getQuotaLimits({ PLACES_DAILY_LIMIT_GLOBAL: 'muito' })).toThrow(/PLACES_DAILY_LIMIT_GLOBAL/);
   });
 });

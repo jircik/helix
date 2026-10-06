@@ -13,6 +13,7 @@ import { fetchPlaces } from '@/lib/places/client';
 
 const NOW = '2026-09-07T12:00:00.000Z';
 const U = 'user-a';
+const limits = { perUser: 1000, global: 1000 };
 let db: HelixDb;
 let close: () => void;
 beforeEach(() => { ({ db, close } = createTestDb()); createTestUser(db); });
@@ -95,14 +96,14 @@ describe('busca parcial e limites', () => {
   it('preserva página recebida, erro e duas tentativas quando a segunda página falha', async () => {
     const fetchFn = vi.fn().mockResolvedValueOnce(success([{ id: 'p1', displayName: { text: 'Encontrado' } }], 'next'))
       .mockResolvedValueOnce(new Response('RESOURCE_EXHAUSTED', { status: 429 }));
-    await expect(runSearch(db, U, { textQuery: 'café' }, { apiKey: 'test', fetchFn, sleep: async () => {}, now: () => NOW })).rejects.toThrow(/429/);
+    await expect(runSearch(db, U, { textQuery: 'café' }, { apiKey: 'test', fetchFn, sleep: async () => {}, now: () => NOW, limits })).rejects.toThrow(/429/);
     expect(db.select().from(searches).get()).toMatchObject({ pagesFetched: 1, apiRequests: 2, newCount: 1, rawCount: 1 });
     expect(db.select().from(leads).get()?.name).toBe('Encontrado');
     expect(db.select().from(leadSearches).all()).toHaveLength(1);
   });
   it('registra também uma tentativa de rede que não recebeu resposta', async () => {
     const fetchFn = vi.fn().mockRejectedValue(new Error('Conexão interrompida'));
-    await expect(runSearch(db, U, { textQuery: 'x' }, { apiKey: 'test', fetchFn })).rejects.toThrow(/Conexão/);
+    await expect(runSearch(db, U, { textQuery: 'x' }, { apiKey: 'test', fetchFn, limits })).rejects.toThrow(/Conexão/);
     expect(db.select().from(searches).get()).toMatchObject({ apiRequests: 1, pagesFetched: 0, rawCount: 0 });
   });
   it.each([0, -1, 1.5, Number.NaN, Infinity])('recusa maxPages %s sem fazer chamadas', async (maxPages) => {
@@ -113,14 +114,14 @@ describe('busca parcial e limites', () => {
   it('desfaz lote se a gravação da procedência falhar e mantém auditoria', async () => {
     db.run(sql`CREATE TRIGGER reject_join BEFORE INSERT ON lead_searches BEGIN SELECT RAISE(ABORT, 'falha simulada'); END`);
     const fetchFn = vi.fn().mockResolvedValue(success([{ id: 'x', displayName: { text: 'Não persistir' } }]));
-    await expect(runSearch(db, U, { textQuery: 'x' }, { apiKey: 'test', fetchFn })).rejects.toThrow();
+    await expect(runSearch(db, U, { textQuery: 'x' }, { apiKey: 'test', fetchFn, limits })).rejects.toThrow();
     expect(db.select().from(leads).all()).toEqual([]);
     expect(db.select().from(searches).get()?.apiRequests).toBe(1);
     expect(db.select().from(searches).get()?.error).toBeTruthy();
   });
   it('repetir busca mantém todos os campos manuais e histórico', async () => {
     const fetchFn = vi.fn().mockImplementation(() => Promise.resolve(success([{ id: 'x', displayName: { text: 'Google' } }])));
-    const deps = { apiKey: 'test', fetchFn, now: () => NOW };
+    const deps = { apiKey: 'test', fetchFn, now: () => NOW, limits };
     await runSearch(db, U, { textQuery: 'x' }, deps);
     const lead = db.select().from(leads).get()!;
     editLead(db, U, lead.id, { verification: 'descartado', disqualifyReason: 'Tem site', notes: 'Manual', stageId: listStages(db, U)[2].id }, NOW);
@@ -160,7 +161,7 @@ describe('isolamento nos serviços', () => {
     createTestUser(db, 'user-b');
     const fetchFn = vi.fn(async () => success([{ id: 'p1', displayName: { text: 'Novo' } }]));
     await runSearch(db, 'user-b', { textQuery: 'cafés', maxPages: 1 },
-      { apiKey: 'k', fetchFn: fetchFn as unknown as typeof fetch, sleep: async () => {}, now: () => NOW });
+      { apiKey: 'k', fetchFn: fetchFn as unknown as typeof fetch, sleep: async () => {}, now: () => NOW, limits });
     expect(listLeads(db, U, {}).total).toBe(0);
     expect(listLeads(db, 'user-b', {}).total).toBe(1);
     expect(db.select().from(searches).get()?.userId).toBe('user-b');

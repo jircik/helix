@@ -4,6 +4,7 @@ import { createTestUser } from '@/lib/db/test-users';
 import { leads } from '@/lib/db/schema';
 import { GET as list } from '@/app/api/leads/route';
 import { PATCH as patch } from '@/app/api/leads/[id]/route';
+import { GET as quota } from '@/app/api/searches/quota/route';
 import { POST as search } from '@/app/api/searches/route';
 import { GET as exportCsv } from '@/app/api/leads/export/route';
 import { GET as timeline, POST as activity } from '@/app/api/leads/[id]/activities/route';
@@ -20,6 +21,9 @@ afterEach(() => close());
 const NOW = '2026-09-07T12:00:00.000Z';
 function lead(name: string) { return db.insert(leads).values({ userId: 'user-a', name, temperature: 'quente', capturedAt: NOW, createdAt: NOW, updatedAt: NOW }).returning().get(); }
 describe('rotas reais com banco em memória', () => {
+  it('cota do dia começa cheia', async () => {
+    expect(await (await quota(new Request('http://localhost/api/searches/quota'))).json()).toEqual({ used: 0, limit: 6, remaining: 6 });
+  });
   it('sem sessão, toda rota responde 401', async () => {
     sessionUser.id = null;
     const res = await list(new Request('http://localhost/api/leads'));

@@ -21,6 +21,7 @@ const deps = (fetchFn: unknown) => ({
   fetchFn: fetchFn as typeof fetch,
   sleep: async () => {},
   now: () => NOW,
+  limits: { perUser: 1000, global: 1000 },
 });
 
 function ok(body: SearchTextResponse) {
