@@ -80,7 +80,9 @@ export function PipelineView() {
             style={{ minHeight: 320 }}
           >
             <div className="panel-head">
-              <span className="mono" style={{ color: stage.color ?? undefined }}>
+              {/* A cor da etapa vai na amostra, não no texto: uma cor escura some no tema escuro. */}
+              <span className="mono stage-label">
+                <span className="stage-swatch" style={{ background: stage.color ?? 'transparent' }} aria-hidden="true" />
                 {stage.name}
               </span>
               <span className="mono">{leads.length}</span>
