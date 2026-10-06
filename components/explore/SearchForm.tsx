@@ -1,9 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Temperature } from '@/lib/db/schema';
 import type { RunSearchInput } from '@/lib/services/run-search';
+import { apiGet } from '@/lib/api/client';
+import { QUOTA_EXCEEDED_MESSAGE, type QuotaStatus } from '@/lib/quota-shared';
 import { BUSINESS_TYPES } from '@/config/business-types';
+import { useSampleState } from '@/components/samples/useSampleState';
 import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
 import { Icon } from '@/components/ui/Icon';
@@ -17,6 +20,14 @@ type Options = typeof DEFAULTS;
 
 function SearchFilters({ value, onApply, onClose }: { value: Options; onApply: (value: Options) => void; onClose: () => void }) {
   const [draft, setDraft] = useState(value);
+  const [quota, setQuota] = useState<QuotaStatus | null>(null);
+  useEffect(() => {
+    let active = true;
+    apiGet<QuotaStatus>('/api/searches/quota').then((out) => { if (active) setQuota(out); }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+  const samples = useSampleState(false);
+  const semCota = quota?.remaining === 0;
   function set<K extends keyof Options>(key: K, value: Options[K]) { setDraft((prev) => ({ ...prev, [key]: value })); }
   return <Modal title="Nova prospecção" eyebrow="Encontre seu próximo cliente" onClose={onClose}>
     <form onSubmit={(event) => { event.preventDefault(); if (draft.textQuery.trim()) onApply({ ...draft, textQuery: draft.textQuery.trim() }); }}>
@@ -45,9 +56,16 @@ function SearchFilters({ value, onApply, onClose }: { value: Options; onApply: (
           </div>
         </section>
         <p className="filter-note">Cada página consulta a API e pode gerar cobrança no Google. O Helix limita cada busca a três páginas.</p>
+        {quota && (semCota
+          ? <>
+            <p role="alert" className="error">{QUOTA_EXCEEDED_MESSAGE}</p>
+            <button type="button" className="btn btn-outline" disabled={samples.busy} onClick={samples.generate}>Gerar dados de exemplo</button>
+            {samples.erro && <p role="alert" className="error">{samples.erro}</p>}
+          </>
+          : <p className="filter-note">Restam {quota.remaining} de {quota.limit} chamadas à API hoje.</p>)}
       </div>
       <div className="modal-actions"><button type="button" className="btn btn-outline" onClick={() => setDraft({ ...DEFAULTS, textQuery: draft.textQuery })}>Restaurar padrão</button>
-        <span /><button type="button" className="btn btn-outline" onClick={onClose}>Cancelar</button><button className="btn" disabled={!draft.textQuery.trim()}>Buscar estabelecimentos<Icon name="arrow" width="14" height="14" /></button></div>
+        <span /><button type="button" className="btn btn-outline" onClick={onClose}>Cancelar</button><button className="btn" disabled={!draft.textQuery.trim() || semCota}>Buscar estabelecimentos<Icon name="arrow" width="14" height="14" /></button></div>
     </form>
   </Modal>;
 }

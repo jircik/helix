@@ -3,6 +3,11 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SearchForm } from './SearchForm';
 
+const apiGet = vi.hoisted(() => vi.fn(async () => ({ used: 2, limit: 6, remaining: 4 })));
+const apiSend = vi.hoisted(() => vi.fn(async () => ({})));
+vi.mock('@/lib/api/client', () => ({ apiGet, apiSend }));
+vi.mock('@/lib/browser', () => ({ reloadPage: vi.fn() }));
+
 describe('prospecção inteiramente em modal', () => {
   it('mostra só a ação principal e não consulta a API ao abrir', async () => {
     const onSearch = vi.fn();
@@ -42,5 +47,21 @@ describe('prospecção inteiramente em modal', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(document.body.style.overflow).toBe('');
     expect(onSearch).not.toHaveBeenCalled();
+  });
+
+  it('mostra quantas chamadas restam hoje', async () => {
+    render(<SearchForm running={false} onSearch={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Fazer prospecção' }));
+    expect(await screen.findByText('Restam 4 de 6 chamadas à API hoje.')).toBeDefined();
+  });
+
+  it('sem cota, bloqueia a busca e explica o motivo', async () => {
+    apiGet.mockResolvedValueOnce({ used: 6, limit: 6, remaining: 0 });
+    render(<SearchForm running={false} onSearch={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Fazer prospecção' }));
+    await userEvent.type(screen.getByLabelText('O que buscar'), 'Padarias');
+    expect(await screen.findByText(/Limite diário de demonstração atingido/)).toBeDefined();
+    expect((screen.getByRole('button', { name: 'Buscar estabelecimentos' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Gerar dados de exemplo' })).toBeDefined();
   });
 });

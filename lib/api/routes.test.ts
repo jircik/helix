@@ -1,11 +1,13 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { createTestDb, type HelixDb } from '@/lib/db/client';
-import { seedStages } from '@/lib/db/seed';
+import { createTestUser } from '@/lib/db/test-users';
 import { leads } from '@/lib/db/schema';
 import { GET as list } from '@/app/api/leads/route';
 import { PATCH as patch } from '@/app/api/leads/[id]/route';
+import { GET as quota } from '@/app/api/searches/quota/route';
 import { POST as search } from '@/app/api/searches/route';
 import { GET as exportCsv } from '@/app/api/leads/export/route';
+import { GET as sampleState, POST as makeSamples, DELETE as dropSamples } from '@/app/api/samples/route';
 import { GET as timeline, POST as activity } from '@/app/api/leads/[id]/activities/route';
 
 let db: HelixDb;
@@ -13,11 +15,21 @@ let close: () => void;
 vi.mock('@/lib/db/client', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/lib/db/client')>(), getDb: () => db,
 }));
-beforeEach(() => { ({ db, close } = createTestDb()); seedStages(db); });
+const sessionUser = vi.hoisted(() => ({ id: 'user-a' as string | null }));
+vi.mock('@/lib/auth/session', () => ({ getSessionUserId: async () => sessionUser.id }));
+beforeEach(() => { ({ db, close } = createTestDb()); createTestUser(db); sessionUser.id = 'user-a'; });
 afterEach(() => close());
 const NOW = '2026-09-07T12:00:00.000Z';
-function lead(name: string) { return db.insert(leads).values({ name, temperature: 'quente', capturedAt: NOW, createdAt: NOW, updatedAt: NOW }).returning().get(); }
+function lead(name: string) { return db.insert(leads).values({ userId: 'user-a', name, temperature: 'quente', capturedAt: NOW, createdAt: NOW, updatedAt: NOW }).returning().get(); }
 describe('rotas reais com banco em memória', () => {
+  it('cota do dia começa cheia', async () => {
+    expect(await (await quota(new Request('http://localhost/api/searches/quota'))).json()).toEqual({ used: 0, limit: 6, remaining: 6 });
+  });
+  it('sem sessão, toda rota responde 401', async () => {
+    sessionUser.id = null;
+    const res = await list(new Request('http://localhost/api/leads'));
+    expect(res.status).toBe(401);
+  });
   it('não permite criar histórico de mudança de etapa manualmente', async () => {
     const first = lead('Original');
     const res = await activity(new Request('http://localhost/api/leads/1/activities', { method: 'POST', body: JSON.stringify({ kind: 'stage_change', body: 'Inventado' }) }), { params: Promise.resolve({ id: String(first.id) }) });
@@ -53,5 +65,13 @@ describe('rotas reais com banco em memória', () => {
     const res = await exportCsv(new Request('http://localhost/api/leads/export'));
     expect(res.headers.get('Content-Disposition')).toContain('attachment');
     expect(await res.text()).toContain('Café exportado');
+  });
+
+  it('gera, consulta e remove exemplos pela API', async () => {
+    const url = 'http://localhost/api/samples';
+    expect((await makeSamples(new Request(url, { method: 'POST' }))).status).toBe(200);
+    expect(await (await sampleState(new Request(url))).json()).toEqual({ hasSamples: true, hasLeads: true });
+    expect((await makeSamples(new Request(url, { method: 'POST' }))).status).toBe(400);
+    expect((await (await dropSamples(new Request(url, { method: 'DELETE' }))).json()).leads).toBe(60);
   });
 });

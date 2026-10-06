@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import type { HelixDb } from '@/lib/db/client';
 import { activities, leads, ACTIVITY_KINDS, type Activity, type ActivityKind } from '@/lib/db/schema';
 import * as v from '@/lib/validate';
@@ -11,16 +11,22 @@ export interface NewActivityInput {
   occurredAt?: string;
 }
 
+/** Atividade não tem dono próprio: herda o do lead, que precisa ser do usuário. */
+function assertOwnLead(db: HelixDb, userId: string, leadId: number): void {
+  if (!db.select({ id: leads.id }).from(leads).where(and(eq(leads.id, leadId), eq(leads.userId, userId))).get()) {
+    throw new Error(`Lead ${leadId} não encontrado.`);
+  }
+}
+
 export function addActivity(
   db: HelixDb,
+  userId: string,
   input: NewActivityInput,
   now: string,
 ): Activity {
   v.integer(input.leadId, 'Lead');
   v.choice(input.kind, ACTIVITY_KINDS, 'Atividade');
-  if (!db.select({ id: leads.id }).from(leads).where(eq(leads.id, input.leadId)).get()) {
-    throw new Error(`Lead ${input.leadId} não encontrado.`);
-  }
+  assertOwnLead(db, userId, input.leadId);
   return db.insert(activities).values({
     leadId: input.leadId,
     kind: input.kind,
@@ -30,11 +36,9 @@ export function addActivity(
   }).returning().get();
 }
 
-export function listActivities(db: HelixDb, leadId: number): Activity[] {
+export function listActivities(db: HelixDb, userId: string, leadId: number): Activity[] {
   v.integer(leadId, 'Lead');
-  if (!db.select({ id: leads.id }).from(leads).where(eq(leads.id, leadId)).get()) {
-    throw new Error(`Lead ${leadId} não encontrado.`);
-  }
+  assertOwnLead(db, userId, leadId);
   return db.select().from(activities)
     .where(eq(activities.leadId, leadId))
     .orderBy(desc(activities.occurredAt), desc(activities.id))
@@ -42,8 +46,8 @@ export function listActivities(db: HelixDb, leadId: number): Activity[] {
 }
 
 /** O histórico de etapas só pode ser criado pela movimentação transacional. */
-export function recordActivity(db: HelixDb, input: NewActivityInput, now: string): Activity {
+export function recordActivity(db: HelixDb, userId: string, input: NewActivityInput, now: string): Activity {
   v.object(input);
   if (input.kind === 'stage_change') throw new Error('Mudanças de etapa são registradas automaticamente.');
-  return addActivity(db, input, now);
+  return addActivity(db, userId, input, now);
 }

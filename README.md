@@ -1,84 +1,96 @@
 # Helix
 
-CRM local de prospecção: encontre estabelecimentos no Google, priorize quem precisa de site e acompanhe os contatos até o fechamento.
+[![CI](https://github.com/jircik/helix/actions/workflows/ci.yml/badge.svg)](https://github.com/jircik/helix/actions/workflows/ci.yml) **[helix.jircik.dev](https://helix.jircik.dev)**
 
-## Rodar localmente
+Helix is a geographic prospecting CRM: it finds businesses on Google Maps that don't have their own website, ranks them, and tracks outreach through a pipeline. Multi-user with email/password auth, per-account data isolation, and a daily Google API quota with atomic reservation. Next.js 16, SQLite, Drizzle, Better Auth.
 
-Use Node.js 24 (a versão está em `.nvmrc`) e npm.
+<!-- GIF: docs/media/helix.gif (gravado após o deploy) -->
 
-```bash
-npm ci
-cp .env.example .env
-npm run db:migrate
-npm run db:seed
-npm run dev
-```
+## O que é
 
-Abra [localhost:3000](http://localhost:3000). Os comandos devem ser executados na raiz do projeto. O seed cria as seis etapas iniciais e pode ser executado novamente sem duplicá-las.
-
-O Helix é **single-user, sem autenticação**, e escuta apenas em `127.0.0.1`. Não exponha a aplicação à internet ou à rede local. O banco padrão é `helix.db`; para usar outro caminho, configure `DATABASE_URL` no `.env`.
-
-## Google
-
-Preencha no `.env`:
-
-- `GOOGLE_PLACES_KEY`: chave de servidor da Places API (New).
-- `NEXT_PUBLIC_GOOGLE_MAPS_KEY`: chave de navegador da Maps JavaScript API.
-
-O visual do mapa vem de `config/map-style.ts`, nas cores do app. O estilo inline
-só vale enquanto o mapa não recebe um Map ID: com um Map ID o Google usa o estilo
-amarrado a ele no Console e ignora o do código.
-
-Configure APIs, faturamento, cotas e restrições das chaves no seu projeto Google Cloud. A chave de servidor nunca deve receber o prefixo `NEXT_PUBLIC_`. Não versione o `.env`.
-
-Reinicie o servidor depois de alterar as chaves. Em modo de produção, alterações nas variáveis `NEXT_PUBLIC_` exigem um novo build. Sem chaves, você pode usar a base, o pipeline e as configurações; busca e mapa dependem do Google.
-
-A integração usa [Text Search (New)](https://developers.google.com/maps/documentation/places/web-service/text-search) com campos explícitos. Cada busca do Helix é limitada a três páginas de até 20 resultados, sem repetição automática de chamadas. As consultas podem gerar cobrança; o número de chamadas fica no histórico.
-
-## Fluxo da v1
-
-- **Visão geral:** temperaturas, pendências, próximas ações e histórico de buscas.
-- **Explorar:** mapa com seleção sincronizada e botão preto **Fazer prospecção**. Texto, tipo, nota, limite, temperatura, telefone, situação e quantidade de avaliações ficam no modal.
-- **Leads:** busca textual por nome, endereço ou notas, filtros em modal, paginação, detalhe e CSV da seleção completa.
-- **Pipeline:** movimentação por arraste ou seletor, com registro automático na timeline.
-- **Configurações → Etapas do funil:** `/configuracoes/etapa`. Criação, nome, cor, tipo (aberta/ganho/perdido), ordem e exclusão com destino explícito dos leads. `/etapas` redireciona para a nova rota.
-
-Na base, os filtros só mudam ao clicar em **Aplicar filtros**. Na prospecção, a consulta só acontece ao confirmar **Buscar estabelecimentos** dentro do modal. Cancelar, fechar ou Esc descarta o rascunho sem consultar o Google.
-
-A sidebar pode ser recolhida: expandida mostra HELIX por escrito; recolhida mostra o símbolo e os ícones de navegação. Os dropdowns são personalizados, com suporte a teclado; checkboxes seguem a identidade monocromática.
+CRM de prospecção: encontre estabelecimentos no Google, priorize quem precisa de site e acompanhe os contatos até o fechamento.
 
 A classificação automática é: quente sem URL, morno com rede social/marketplace, frio com site próprio. Todos os resultados recebidos são salvos antes dos filtros de exibição. Uma nova busca atualiza apenas os dados do Google: contato, verificação, motivo de descarte, notas, etapa e histórico são preservados.
 
-Não há exclusão de leads. Use a verificação **Descartado**, informando o motivo. Datas são armazenadas em UTC e exibidas no fuso do navegador.
+## Fluxo
 
-## Verificação e produção local
+- **Visão geral:** temperaturas, pendências, próximas ações e histórico de buscas.
+- **Explorar:** mapa com seleção sincronizada e botão **Fazer prospecção**. Texto, tipo, nota, limite, temperatura, telefone, situação e quantidade de avaliações ficam no modal, que mostra a cota do dia.
+- **Leads:** busca textual por nome, endereço ou notas, filtros em modal, paginação, detalhe, exclusão e CSV da seleção completa.
+- **Pipeline:** movimentação por arraste ou seletor, com registro automático na timeline.
+- **Configurações:** etapas do funil (criação, nome, cor, tipo aberta/ganho/perdido, ordem e exclusão com destino explícito dos leads) e dados de exemplo.
+- **Conta:** cadastro e login com e-mail e senha; cada conta enxerga apenas os próprios dados.
+- **Dados de exemplo:** 60 leads fictícios por usuário para explorar o app sem gastar a cota do Google; podem ser gerados e removidos a qualquer momento.
+
+## Stack
+
+| Camada | Tecnologia |
+| --- | --- |
+| Framework | Next.js 16 (App Router), React 19 |
+| Banco | SQLite (better-sqlite3, WAL) + Drizzle ORM |
+| Autenticação | Better Auth (e-mail e senha) |
+| Mapa e busca | Maps JavaScript API e Places API (New), Text Search |
+| Testes | Vitest |
+| CI e deploy | GitHub Actions, Railway |
+
+## Decisões
+
+### SQLite em produção
+
+Uma réplica, um volume, modo WAL. O volume do Railway aceita um único processo, o que combina com SQLite e elimina um serviço de banco. O backup é diário e roda dentro do processo (`instrumentation.ts`), com a API de backup do SQLite, mantendo os 7 mais recentes em `BACKUP_DIR`.
+
+### Isolamento entre contas
+
+`userId` é obrigatório em todo repositório e serviço. Recurso de outra conta responde 404, não 403, para não revelar que ele existe. Um teste cria as contas A e B e verifica que, nas rotas de dados da API (leads, etapas, buscas, exemplos, cota, visão geral e exportação), A não alcança os dados de B.
+
+### Cota diária do Google
+
+A unidade é a chamada à API. A reserva acontece numa única transação síncrona, então requisições concorrentes não ultrapassam o limite. O free tier da SKU Text Search Enterprise é de 1.000 chamadas por mês, daí os padrões de 30 por dia no total e 6 por dia por usuário (`PLACES_DAILY_LIMIT_GLOBAL` e `PLACES_DAILY_LIMIT_PER_USER`).
+
+### Por que Enterprise
+
+O campo `websiteUri` é a base da classificação (quente, morno, frio) e só está disponível na SKU Enterprise.
+
+### Dados de exemplo fora da cota
+
+Leads de exemplo são marcados com `is_sample` e nunca chamam o Google, então não consomem a cota. Quem não tem cota pode ainda assim ver o app cheio.
+
+## Rodar localmente
+
+Use Node.js 24 (`.nvmrc`) e npm.
+
+```bash
+npm ci
+cp .env.example .env   # preencha BETTER_AUTH_SECRET e as chaves do Google
+npm run db:migrate
+npm run dev
+```
+
+Abra [127.0.0.1:3000](http://127.0.0.1:3000). Todas as variáveis estão documentadas em [`.env.example`](.env.example). Sem as chaves do Google dá para usar tudo com dados de exemplo, exceto a busca e o mapa.
+
+## Verificação
 
 ```bash
 npm test
 npm run lint
 npx tsc --noEmit
 npm run build
-npm start
 ```
 
-Os testes automatizados usam SQLite em memória e respostas Google simuladas: não consomem a API e não alteram a base local. Fontes Inter e DM Mono são servidas localmente.
+Os testes usam SQLite em memória e respostas Google simuladas: não consomem a API nem alteram a base local.
 
-## Backup
+## Deploy
 
-SQLite usa WAL. Não copie apenas `helix.db` enquanto a aplicação estiver rodando: transações recentes podem estar no arquivo `-wal`.
+Passo a passo para Railway e Google Cloud em [docs/deploy.md](docs/deploy.md).
 
-Para uma cópia consistente, pare o servidor e use a API de backup do SQLite (substitua os caminhos se necessário):
+## Roadmap
 
-```bash
-node --input-type=module -e 'import Database from "better-sqlite3"; const db = new Database("./helix.db"); await db.backup("./helix-backup.db"); db.close();'
-```
+- Recuperação de senha e verificação de e-mail (Resend)
+- OAuth (Google e GitHub)
+- Exclusão de conta
+- Testes E2E (Playwright)
+- Agentes de IA na verificação de leads
 
-Guarde o backup em local seguro, pois contém contatos e notas. CSV é uma exportação comercial, não substitui o backup completo do banco.
+## Licença
 
-## Estrutura
-
-`lib/` concentra classificação, validação, integração, banco, repositórios e serviços. `app/api/` contém os adaptadores HTTP; `components/` contém a interface. Migrações ficam em `lib/db/migrations/`.
-
-Escopo original: [especificação](docs/superpowers/specs/2026-09-06-helix-crm-design.md) e [plano](docs/superpowers/plans/2026-09-06-helix-v1.md). Status e verificações: [entrega da v1](docs/helix-v1-entrega.md).
-
-MCP, agentes de IA, presets editáveis, autenticação e hospedagem pública não fazem parte desta versão.
+[MIT](LICENSE)

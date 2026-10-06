@@ -1,9 +1,11 @@
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { HelixDb } from '@/lib/db/client';
 import { leads, leadSearches, searches, searchPresets, TEMPERATURES, type Lead, type Temperature } from '@/lib/db/schema';
-import { fetchPlaces, PlacesFetchError, validateQuery, type PlacesDeps } from '@/lib/places/client';
+import { fetchPlaces, MAX_PAGES, PlacesFetchError, validateQuery, type PlacesDeps } from '@/lib/places/client';
 import { normalize } from '@/lib/places/normalize';
 import { upsertPlaces } from '@/lib/repo/leads';
+import type { QuotaLimits } from '@/lib/env';
+import { QuotaExceededError, quotaStatus } from './quota';
 import * as v from '@/lib/validate';
 
 export interface ClientFilters {
@@ -32,7 +34,7 @@ export interface RunSearchResult {
   leadIds: number[];
 }
 
-export type RunSearchDeps = PlacesDeps & { now?: () => string };
+export type RunSearchDeps = PlacesDeps & { now?: () => string; limits: QuotaLimits };
 
 /**
  * Filtros client-side. Rodam DEPOIS da gravação — os 60 resultados entram no
@@ -57,6 +59,7 @@ export function applyClientFilters(rows: Lead[], filters: ClientFilters): Lead[]
 
 export async function runSearch(
   db: HelixDb,
+  userId: string,
   input: RunSearchInput,
   deps: RunSearchDeps,
 ): Promise<RunSearchResult> {
@@ -80,18 +83,28 @@ export async function runSearch(
   }
   if (input.presetId != null) {
     v.integer(input.presetId, 'Preset');
-    if (!db.select().from(searchPresets).where(eq(searchPresets.id, input.presetId)).get()) throw new Error('Preset não encontrado.');
+    if (!db.select().from(searchPresets).where(and(eq(searchPresets.id, input.presetId), eq(searchPresets.userId, userId))).get()) throw new Error('Preset não encontrado.');
   }
 
+  // Reserva e gravação na mesma transação síncrona: com um único processo, uma
+  // segunda busca simultânea já enxerga esta reserva e não fura o limite.
   // A busca é gravada antes da chamada para que a falha também fique registrada.
-  const search = db.insert(searches).values({
-    presetId: input.presetId ?? null,
-    textQuery: input.textQuery,
-    includedType: input.includedType ?? null,
-    minRating: input.minRating ?? null,
-    filtersJson: JSON.stringify(filters),
-    executedAt: now,
-  }).returning({ id: searches.id }).get();
+  const { search, pages } = db.transaction((tx) => {
+    const { remaining } = quotaStatus(tx, userId, deps.limits, now);
+    if (remaining <= 0) throw new QuotaExceededError();
+    const pages = Math.min(input.maxPages ?? MAX_PAGES, MAX_PAGES, remaining);
+    const search = tx.insert(searches).values({
+      userId,
+      presetId: input.presetId ?? null,
+      textQuery: input.textQuery,
+      includedType: input.includedType ?? null,
+      minRating: input.minRating ?? null,
+      filtersJson: JSON.stringify(filters),
+      executedAt: now,
+      apiRequests: pages,
+    }).returning({ id: searches.id }).get();
+    return { search, pages };
+  });
 
   let fetched;
   let fetchError: unknown;
@@ -101,7 +114,7 @@ export async function runSearch(
         textQuery: input.textQuery,
         includedType: input.includedType,
         minRating: input.minRating,
-        maxPages: input.maxPages,
+        maxPages: pages,
       },
       deps,
     );
@@ -116,7 +129,7 @@ export async function runSearch(
     .map(normalize)
     .filter((p): p is NonNullable<typeof p> => p !== null);
 
-  const outcomes = upsertPlaces(db, normalized, now);
+  const outcomes = upsertPlaces(db, userId, normalized, now);
   const newCount = outcomes.filter((o) => o.wasNew).length;
 
   if (outcomes.length > 0) {

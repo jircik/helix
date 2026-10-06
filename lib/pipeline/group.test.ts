@@ -5,9 +5,9 @@ import type { Lead, Stage } from '@/lib/db/schema';
 const NOW = '2026-09-06T12:00:00.000Z';
 
 const STAGES: Stage[] = [
-  { id: 1, name: 'Novo', position: 1, color: null, kind: 'open' },
-  { id: 2, name: 'Contatado', position: 2, color: null, kind: 'open' },
-  { id: 3, name: 'Fechado', position: 3, color: null, kind: 'won' },
+  { id: 1, userId: 'user-a', name: 'Novo', position: 1, color: null, kind: 'open' },
+  { id: 2, userId: 'user-a', name: 'Contatado', position: 2, color: null, kind: 'open' },
+  { id: 3, userId: 'user-a', name: 'Fechado', position: 3, color: null, kind: 'won' },
 ];
 
 function lead(id: number, stageId: number | null): Lead {

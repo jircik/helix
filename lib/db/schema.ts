@@ -22,16 +22,72 @@ export type Verification = (typeof VERIFICATIONS)[number];
 export type StageKind = (typeof STAGE_KINDS)[number];
 export type ActivityKind = (typeof ACTIVITY_KINDS)[number];
 
+const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
+
+/** Tabelas do Better Auth. Nomes e colunas seguem o schema padrão da lib. */
+export const user = sqliteTable('user', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  email: text('email').notNull().unique(),
+  emailVerified: integer('email_verified', { mode: 'boolean' }).notNull().default(false),
+  image: text('image'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull().default(nowMs).$onUpdate(() => new Date()),
+});
+
+export const session = sqliteTable('session', {
+  id: text('id').primaryKey(),
+  expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+  token: text('token').notNull().unique(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull().$onUpdate(() => new Date()),
+  ipAddress: text('ip_address'),
+  userAgent: text('user_agent'),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+}, (t) => [index('session_user_ix').on(t.userId)]);
+
+export const account = sqliteTable('account', {
+  id: text('id').primaryKey(),
+  accountId: text('account_id').notNull(),
+  providerId: text('provider_id').notNull(),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  accessToken: text('access_token'),
+  refreshToken: text('refresh_token'),
+  idToken: text('id_token'),
+  accessTokenExpiresAt: integer('access_token_expires_at', { mode: 'timestamp_ms' }),
+  refreshTokenExpiresAt: integer('refresh_token_expires_at', { mode: 'timestamp_ms' }),
+  scope: text('scope'),
+  password: text('password'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull().$onUpdate(() => new Date()),
+}, (t) => [index('account_user_ix').on(t.userId)]);
+
+export const verification = sqliteTable('verification', {
+  id: text('id').primaryKey(),
+  identifier: text('identifier').notNull(),
+  value: text('value').notNull(),
+  expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(nowMs),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull().default(nowMs).$onUpdate(() => new Date()),
+}, (t) => [index('verification_identifier_ix').on(t.identifier)]);
+
+const ownerId = () => text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' });
+
 export const stages = sqliteTable('stages', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: ownerId(),
   name: text('name').notNull(),
   position: integer('position').notNull(),
   color: text('color'),
   kind: text('kind', { enum: STAGE_KINDS }).notNull().default('open'),
-}, (t) => [check('stages_kind_check', sql`${t.kind} in ('open', 'won', 'lost')`)]);
+}, (t) => [
+  index('stages_user_ix').on(t.userId, t.position),
+  check('stages_kind_check', sql`${t.kind} in ('open', 'won', 'lost')`),
+]);
 
 export const leads = sqliteTable('leads', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: ownerId(),
   placeId: text('place_id'),
   name: text('name').notNull(),
   formattedAddress: text('formatted_address'),
@@ -62,12 +118,14 @@ export const leads = sqliteTable('leads', {
   nextActionAt: text('next_action_at'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
+  isSample: integer('is_sample', { mode: 'boolean' }).notNull().default(false),
 }, (t) => [
-  uniqueIndex('leads_place_id_ux').on(t.placeId),
-  index('leads_temperature_ix').on(t.temperature),
-  index('leads_verification_ix').on(t.verification),
+  uniqueIndex('leads_user_place_ux').on(t.userId, t.placeId),
+  index('leads_user_updated_ix').on(t.userId, t.updatedAt),
+  index('leads_user_temperature_ix').on(t.userId, t.temperature),
+  index('leads_user_verification_ix').on(t.userId, t.verification),
   index('leads_stage_ix').on(t.stageId),
-  index('leads_next_action_ix').on(t.nextActionAt),
+  index('leads_user_next_action_ix').on(t.userId, t.nextActionAt),
   check('leads_temperature_check', sql`${t.temperature} in ('quente', 'morno', 'frio')`),
   check('leads_verification_check', sql`${t.verification} in ('pendente', 'qualificado', 'descartado')`),
   check('leads_verified_by_check', sql`${t.verifiedBy} is null or ${t.verifiedBy} in ('manual', 'ai')`),
@@ -87,6 +145,7 @@ export const activities = sqliteTable('activities', {
 
 export const searchPresets = sqliteTable('search_presets', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: ownerId(),
   name: text('name').notNull(), textQuery: text('text_query').notNull(),
   includedType: text('included_type'), minRating: real('min_rating'),
   filtersJson: text('filters_json').notNull(), maxPages: integer('max_pages').notNull().default(3),
@@ -95,13 +154,18 @@ export const searchPresets = sqliteTable('search_presets', {
 
 export const searches = sqliteTable('searches', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: ownerId(),
   presetId: integer('preset_id').references(() => searchPresets.id),
   textQuery: text('text_query').notNull(), includedType: text('included_type'),
   minRating: real('min_rating'), filtersJson: text('filters_json').notNull(),
   pagesFetched: integer('pages_fetched').notNull().default(0),
   apiRequests: integer('api_requests').notNull().default(0), rawCount: integer('raw_count').notNull().default(0),
   newCount: integer('new_count').notNull().default(0), executedAt: text('executed_at').notNull(), error: text('error'),
-});
+  isSample: integer('is_sample', { mode: 'boolean' }).notNull().default(false),
+}, (t) => [
+  index('searches_user_executed_ix').on(t.userId, t.executedAt),
+  index('searches_executed_ix').on(t.executedAt),
+]);
 
 export const leadSearches = sqliteTable('lead_searches', {
   leadId: integer('lead_id').notNull().references(() => leads.id, { onDelete: 'cascade' }),
@@ -120,7 +184,7 @@ export type NewSearch = typeof searches.$inferInsert;
 export type SearchPreset = typeof searchPresets.$inferSelect;
 export type NewSearchPreset = typeof searchPresets.$inferInsert;
 
-export const DEFAULT_STAGES: NewStage[] = [
+export const DEFAULT_STAGES: Omit<NewStage, 'userId'>[] = [
   { name: 'Novo', position: 1, color: '#737373', kind: 'open' },
   { name: 'Contatado', position: 2, color: '#2f6b4f', kind: 'open' },
   { name: 'Reunião', position: 3, color: '#1f4f7a', kind: 'open' },
@@ -128,3 +192,5 @@ export const DEFAULT_STAGES: NewStage[] = [
   { name: 'Fechado', position: 5, color: '#0a0a0a', kind: 'won' },
   { name: 'Perdido', position: 6, color: '#a33', kind: 'lost' },
 ];
+
+export type User = typeof user.$inferSelect;

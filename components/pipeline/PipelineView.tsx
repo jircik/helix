@@ -7,6 +7,7 @@ import { groupByStage } from '@/lib/pipeline/group';
 import { LeadModal } from '@/components/leads/LeadModal';
 import { useLeadDetail } from '@/components/leads/useLeadDetail';
 import { TemperatureBadge } from '@/components/ui/TemperatureBadge';
+import { EmptyWorkspace } from '@/components/samples/EmptyWorkspace';
 import { Select } from '@/components/ui/Select';
 
 export function PipelineView() {
@@ -62,6 +63,8 @@ export function PipelineView() {
       {loading && <p className="empty">Carregando pipeline…</p>}
 
       {(erro || detalhe.erro) && <p role="alert" className="error" style={{ marginTop: 16 }}>{erro ?? detalhe.erro}</p>}
+
+      {!loading && !erro && rows.length === 0 && <EmptyWorkspace />}
 
       <div className="kanban" style={{
         marginTop: 24, display: 'grid', gap: 16,

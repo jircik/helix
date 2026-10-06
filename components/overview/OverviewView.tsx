@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { Lead, Search, Temperature } from '@/lib/db/schema';
 import { apiGet } from '@/lib/api/client';
+import { EmptyWorkspace } from '@/components/samples/EmptyWorkspace';
 
 interface Overview {
   porTemperatura: Record<Temperature, number>;
@@ -35,6 +36,9 @@ export function OverviewView() {
 
   if (erro) return <div className="view"><p className="error">{erro}</p></div>;
   if (!data) return <div className="view"><p className="empty">Carregando…</p></div>;
+
+  const t = data.porTemperatura;
+  if (t.quente + t.morno + t.frio === 0) return <div className="view"><EmptyWorkspace /></div>;
 
   return (
     <div className="view">
