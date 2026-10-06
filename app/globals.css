@@ -528,3 +528,10 @@ tr:focus-visible .row-action, .row-action:focus-visible { color: var(--text); bo
 .sidebar-user { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .sidebar-avatar { width: 26px; height: 26px; flex: none; display: grid; place-items: center; border: 1px solid var(--line); font-size: 11px; font-weight: 600; text-transform: uppercase; }
 .sidebar-user-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+
+.sample-banner { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 34px; border-bottom: 1px solid var(--line); background: var(--surface-2); font-size: 12px; }
+.empty-workspace { padding: 32px; max-width: 640px; margin: 24px 0; }
+.empty-workspace h2 { font-size: 18px; font-weight: 500; margin: 8px 0 10px; }
+.empty-workspace p { color: var(--text-muted); font-size: 13px; line-height: 1.7; }
+.empty-workspace-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+@media (max-width: 640px) { .sample-banner { padding: 10px 16px; } .empty-workspace { padding: 20px; } }

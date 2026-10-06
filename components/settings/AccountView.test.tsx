@@ -7,6 +7,7 @@ const router = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn() }));
 vi.mock('next/navigation', () => ({ useRouter: () => router }));
 const authClient = vi.hoisted(() => ({ updateUser: vi.fn(), changePassword: vi.fn(), signOut: vi.fn() }));
 vi.mock('@/lib/auth/client', () => ({ authClient }));
+vi.mock('@/components/samples/SampleBanner', () => ({ SampleControls: () => null }));
 beforeEach(() => vi.clearAllMocks());
 
 const USER = { name: 'Ana', email: 'ana@teste.dev' };

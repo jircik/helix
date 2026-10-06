@@ -7,6 +7,7 @@ import { PATCH as patch } from '@/app/api/leads/[id]/route';
 import { GET as quota } from '@/app/api/searches/quota/route';
 import { POST as search } from '@/app/api/searches/route';
 import { GET as exportCsv } from '@/app/api/leads/export/route';
+import { GET as sampleState, POST as makeSamples, DELETE as dropSamples } from '@/app/api/samples/route';
 import { GET as timeline, POST as activity } from '@/app/api/leads/[id]/activities/route';
 
 let db: HelixDb;
@@ -64,5 +65,13 @@ describe('rotas reais com banco em memória', () => {
     const res = await exportCsv(new Request('http://localhost/api/leads/export'));
     expect(res.headers.get('Content-Disposition')).toContain('attachment');
     expect(await res.text()).toContain('Café exportado');
+  });
+
+  it('gera, consulta e remove exemplos pela API', async () => {
+    const url = 'http://localhost/api/samples';
+    expect((await makeSamples(new Request(url, { method: 'POST' }))).status).toBe(200);
+    expect(await (await sampleState(new Request(url))).json()).toEqual({ hasSamples: true, hasLeads: true });
+    expect((await makeSamples(new Request(url, { method: 'POST' }))).status).toBe(400);
+    expect((await (await dropSamples(new Request(url, { method: 'DELETE' }))).json()).leads).toBe(60);
   });
 });

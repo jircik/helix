@@ -1,5 +1,6 @@
 'use client';
 
+import { SampleControls } from '@/components/samples/SampleBanner';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { authClient } from '@/lib/auth/client';
@@ -71,6 +72,7 @@ export function AccountView({ user }: { user: { name: string; email: string } })
       <FeedbackLine value={senhaFeedback} />
       <button className="btn">Alterar senha</button>
     </form>
+    <SampleControls />
     <div className="panel settings-card">
       <h2>Sessão</h2>
       <button type="button" className="btn btn-outline" onClick={sair}>Sair da conta</button>

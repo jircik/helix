@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Sidebar } from '@/components/shell/Sidebar';
+import { SampleBanner } from '@/components/samples/SampleBanner';
 import { requireUser } from '@/lib/auth/session';
 
 export const dynamic = 'force-dynamic';
@@ -9,7 +10,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="shell">
       <Sidebar user={{ name: user.name, email: user.email }} />
-      <main className="main">{children}</main>
+      <main className="main"><SampleBanner />{children}</main>
     </div>
   );
 }

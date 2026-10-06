@@ -8,6 +8,8 @@ import { LeadModal } from './LeadModal';
 import { DeleteLeadsDialog } from './DeleteLeadsDialog';
 import { useLeadDetail } from './useLeadDetail';
 import { LeadFilters } from './LeadFilters';
+import { EmptyWorkspace } from '@/components/samples/EmptyWorkspace';
+import { useSampleState } from '@/components/samples/useSampleState';
 
 /**
  * O que a confirmação vai apagar. `ids: null` significa "tudo que o filtro
@@ -37,6 +39,7 @@ export function LeadsView({ initialLeadId = null }: { initialLeadId?: number | n
   const [alvo, setAlvo] = useState<DeleteTarget | null>(null);
   const [apagando, setApagando] = useState(false);
   const [erroExclusao, setErroExclusao] = useState<string | null>(null);
+  const { state: sampleState } = useSampleState();
   const params = new URLSearchParams({
     temperatures: temperatures.join(','),
     verifications: incluirDescartados ? 'pendente,qualificado,descartado' : 'pendente,qualificado',
@@ -128,6 +131,7 @@ export function LeadsView({ initialLeadId = null }: { initialLeadId?: number | n
         <a className="btn btn-outline" href={'/api/leads/export?' + query}>Exportar CSV</a>
       </div>
       {(erro || detalhe.erro) && <p role="alert" className="error">{erro ?? detalhe.erro}</p>}
+      {sampleState?.hasLeads === false ? <EmptyWorkspace /> : <>
       <LeadFilters temperatures={temperatures} incluirDescartados={incluirDescartados}
         busca={busca} stageId={stageId} stages={stages}
         onTemperatures={(value) => changeFilters(() => setTemperatures(value))}
@@ -177,6 +181,7 @@ export function LeadsView({ initialLeadId = null }: { initialLeadId?: number | n
           </div>
         </div>
       </div>
+      </>}
       {alvo && (
         <DeleteLeadsDialog
           count={alvo.count}

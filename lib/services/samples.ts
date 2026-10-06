@@ -1,23 +1,21 @@
 /**
- * Popula o banco com leads fictícios para avaliar a interface cheia.
- *
- *   npm run db:seed:fake          # recusa se já houver leads
- *   npm run db:seed:fake -- --force   # apaga os fictícios e regrava
- *
- * Nada aqui é usado em produção. Os place_id começam com `FAKE-`, o que
- * torna a limpeza exata e impede colisão com resultados reais do Google.
+ * Dados de exemplo por usuário: leads fictícios para ver o app cheio sem
+ * gastar a API do Google. Tudo fica marcado com is_sample; os place_id
+ * começam com `FAKE-` para nunca colidir com ids reais do Google.
  */
-import { like } from 'drizzle-orm';
-import { getDb } from '../lib/db/client';
+import { and, count, eq } from 'drizzle-orm';
+import type { HelixDb } from '@/lib/db/client';
 import {
-  activities, leadSearches, leads, searches, stages,
+  activities, leadSearches, leads, searches,
   type ActivityKind, type NewLead, type Temperature, type Verification,
-} from '../lib/db/schema';
+} from '@/lib/db/schema';
+import { listStages } from '@/lib/repo/stages';
 
 const FAKE_PREFIX = 'FAKE-';
 
 /** Gerador determinístico: rodar duas vezes produz a mesma base. */
-let state = 20260907;
+let state = 0;
+function resetRandom() { state = 20260907; }
 function rnd(): number {
   state = (state * 1664525 + 1013904223) % 4294967296;
   return state / 4294967296;
@@ -111,17 +109,19 @@ function slug(nome: string): string {
     .replace(/[^a-z0-9]+/g, '');
 }
 
+let reference = new Date();
 function iso(daysAgo: number, hour = 10): string {
-  const d = new Date();
+  const d = new Date(reference);
   d.setUTCDate(d.getUTCDate() - daysAgo);
   d.setUTCHours(hour, int(0, 59), 0, 0);
   return d.toISOString();
 }
 
-const TOTAL = 140;
+const TOTAL = 60;
 
-function build(): { rows: NewLead[]; extras: Array<{ acts: number; overdue: boolean }> } {
-  const rows: NewLead[] = [];
+type SampleRow = Omit<NewLead, 'userId' | 'stageId'> & { stagePosition: number };
+function build(): { rows: SampleRow[]; extras: Array<{ acts: number; overdue: boolean }> } {
+  const rows: SampleRow[] = [];
   const extras: Array<{ acts: number; overdue: boolean }> = [];
   const usados = new Set<string>();
 
@@ -174,17 +174,17 @@ function build(): { rows: NewLead[]; extras: Array<{ acts: number; overdue: bool
     }
 
     // Etapa: só quem foi qualificado anda no funil.
-    let stageId = 1;
+    let stagePosition = 1;
     if (verification === 'qualificado') {
       const r2 = rnd();
-      stageId = r2 < 0.34 ? 2 : r2 < 0.60 ? 3 : r2 < 0.80 ? 4 : r2 < 0.92 ? 5 : 6;
+      stagePosition = r2 < 0.34 ? 2 : r2 < 0.60 ? 3 : r2 < 0.80 ? 4 : r2 < 0.92 ? 5 : 6;
     } else if (verification === 'descartado' && chance(0.3)) {
-      stageId = 6;
+      stagePosition = 6;
     }
 
     const trabalhado = verification === 'qualificado';
-    const overdue = trabalhado && stageId <= 4 && chance(0.45);
-    const futuro = trabalhado && stageId <= 4 && !overdue && chance(0.5);
+    const overdue = trabalhado && stagePosition <= 4 && chance(0.45);
+    const futuro = trabalhado && stagePosition <= 4 && !overdue && chance(0.5);
 
     const nextAction = overdue || futuro ? pick(PROXIMAS) : null;
     const nextActionAt = overdue ? iso(int(1, 9), 12) : futuro ? iso(-int(1, 12), 12) : null;
@@ -209,7 +209,7 @@ function build(): { rows: NewLead[]; extras: Array<{ acts: number; overdue: bool
       rawJson: JSON.stringify({ fake: true, ramo: ramo.tipo }),
       capturedAt: iso(capturado),
       temperature,
-      stageId,
+      stagePosition,
       verification,
       disqualifyReason,
       verifiedBy,
@@ -242,117 +242,82 @@ const CONSULTAS = [
   { q: 'restaurante Vila Madalena São Paulo', tipo: 'restaurant' },
 ] as const;
 
-function main() {
-  const force = process.argv.includes('--force');
-  const db = getDb();
+export interface SampleState { hasSamples: boolean; hasLeads: boolean }
 
-  const existentes = db.select({ id: leads.id }).from(leads).all();
-  const fakeExistentes = db.select({ id: leads.id }).from(leads)
-    .where(like(leads.placeId, `${FAKE_PREFIX}%`)).all();
-  const reais = existentes.length - fakeExistentes.length;
+export function getSampleState(db: HelixDb, userId: string): SampleState {
+  const sample = db.select({ value: count() }).from(leads)
+    .where(and(eq(leads.userId, userId), eq(leads.isSample, true))).get()?.value ?? 0;
+  const all = db.select({ value: count() }).from(leads).where(eq(leads.userId, userId)).get()?.value ?? 0;
+  return { hasSamples: sample > 0, hasLeads: all > 0 };
+}
 
-  if (existentes.length > 0 && !force) {
-    console.error(
-      `Já existem ${existentes.length} leads (${reais} reais, ${fakeExistentes.length} fictícios).\n` +
-      'Rode com --force para apagar os fictícios e regravar. Leads reais nunca são tocados.',
-    );
-    process.exit(1);
-  }
-
-  if (db.select().from(stages).all().length === 0) {
-    console.error('Nenhuma etapa no funil. Rode `npm run db:seed` antes.');
-    process.exit(1);
-  }
-
-  if (fakeExistentes.length > 0) {
-    // ON DELETE CASCADE limpa activities e lead_searches junto.
-    db.delete(leads).where(like(leads.placeId, `${FAKE_PREFIX}%`)).run();
-    db.delete(searches).where(like(searches.textQuery, '%[fake]%')).run();
-    console.log(`Removidos ${fakeExistentes.length} leads fictícios anteriores.`);
-  }
-
-  const { rows, extras } = build();
-
-  const gravados = db.transaction((tx) => {
-    const ids: number[] = [];
-    for (const row of rows) {
-      ids.push(tx.insert(leads).values(row).returning({ id: leads.id }).get().id);
+export function generateSamples(db: HelixDb, userId: string, now = new Date()) {
+  return db.transaction((tx) => {
+    if (getSampleState(tx, userId).hasSamples) {
+      throw new Error('Sua conta já tem dados de exemplo. Remova-os antes de gerar de novo.');
     }
+    const etapas = listStages(tx, userId);
+    if (!etapas.length) throw new Error('Nenhuma etapa no funil.');
+    // A posição sorteada (1–6) vira a etapa equivalente do usuário; funis menores ficam com a última.
+    const etapaNa = (position: number) => etapas[Math.min(position, etapas.length) - 1];
+
+    resetRandom();
+    reference = now;
+    const { rows, extras } = build();
+
+    const ids = rows.map(({ stagePosition, ...row }) => tx.insert(leads).values({
+      ...row, userId, isSample: true, stageId: etapaNa(stagePosition).id,
+    }).returning({ id: leads.id }).get().id);
 
     let totalAtividades = 0;
     ids.forEach((leadId, i) => {
-      const lead = rows[i];
-      const quantas = extras[i].acts;
-
-      if (lead.stageId && lead.stageId > 1) {
-        const nome = ['', 'Novo', 'Contatado', 'Reunião', 'Proposta', 'Fechado', 'Perdido'][lead.stageId];
+      const position = rows[i].stagePosition;
+      if (position > 1) {
         tx.insert(activities).values({
-          leadId, kind: 'stage_change', body: `Novo → ${nome}`,
+          leadId, kind: 'stage_change', body: `${etapas[0].name} → ${etapaNa(position).name}`,
           occurredAt: iso(int(1, 14)), createdAt: iso(int(1, 14)),
         }).run();
         totalAtividades++;
       }
-
-      for (let a = 0; a < quantas; a++) {
+      for (let a = 0; a < extras[i].acts; a++) {
         const kind = pick(['ligacao', 'whatsapp', 'email', 'dm', 'visita', 'nota']) as ActivityKind;
         const quando = iso(int(0, 21), int(9, 18));
-        tx.insert(activities).values({
-          leadId, kind, body: pick(CORPOS[kind]),
-          occurredAt: quando, createdAt: quando,
-        }).run();
+        tx.insert(activities).values({ leadId, kind, body: pick(CORPOS[kind]), occurredAt: quando, createdAt: quando }).run();
         totalAtividades++;
       }
     });
 
-    let vinculos = 0;
+    let buscas = 0;
     CONSULTAS.forEach((consulta, i) => {
       const doRamo = ids.filter((_, idx) => rows[idx].primaryType === consulta.tipo);
-      const brutos = doRamo.length;
-      const paginas = brutos > 40 ? 3 : brutos > 20 ? 2 : 1;
-
+      if (!doRamo.length) return;
+      const paginas = doRamo.length > 40 ? 3 : doRamo.length > 20 ? 2 : 1;
       const searchId = tx.insert(searches).values({
-        textQuery: `${consulta.q} [fake]`,
+        userId,
+        isSample: true,
+        textQuery: consulta.q,
         includedType: consulta.tipo,
         minRating: i % 3 === 0 ? 4 : null,
         filtersJson: JSON.stringify({ temperatures: ['quente'], excludeClosed: true }),
         pagesFetched: paginas,
+        // Mostra no histórico quantas chamadas uma busca real teria feito; a cota ignora is_sample.
         apiRequests: paginas,
-        rawCount: brutos,
-        newCount: brutos,
+        rawCount: doRamo.length,
+        newCount: doRamo.length,
         executedAt: iso(int(1, 20), int(9, 19)),
       }).returning({ id: searches.id }).get().id;
-
-      for (const leadId of doRamo) {
-        tx.insert(leadSearches).values({ leadId, searchId, wasNew: true }).run();
-        vinculos++;
-      }
+      for (const leadId of doRamo) tx.insert(leadSearches).values({ leadId, searchId, wasNew: true }).run();
+      buscas++;
     });
 
-    return { leads: ids.length, atividades: totalAtividades, buscas: CONSULTAS.length, vinculos };
+    return { leads: ids.length, activities: totalAtividades, searches: buscas };
   });
-
-  const porTemp = { quente: 0, morno: 0, frio: 0 };
-  for (const r of rows) porTemp[r.temperature as Temperature]++;
-  const acoesVencidas = extras.filter((e) => e.overdue).length;
-
-  console.log(
-    `\nBase fictícia gravada.\n` +
-    `  leads:      ${gravados.leads}  (quente ${porTemp.quente} · morno ${porTemp.morno} · frio ${porTemp.frio})\n` +
-    `  atividades: ${gravados.atividades}\n` +
-    `  buscas:     ${gravados.buscas}  (${gravados.vinculos} vínculos de procedência)\n` +
-    `  próximas ações vencidas: ${acoesVencidas}\n\n` +
-    `Para limpar: npm run db:seed:fake -- --clean\n`,
-  );
 }
 
-function clean() {
-  const db = getDb();
-  const alvo = db.select({ id: leads.id }).from(leads)
-    .where(like(leads.placeId, `${FAKE_PREFIX}%`)).all();
-  db.delete(leads).where(like(leads.placeId, `${FAKE_PREFIX}%`)).run();
-  db.delete(searches).where(like(searches.textQuery, '%[fake]%')).run();
-  console.log(`Removidos ${alvo.length} leads fictícios. Leads reais preservados.`);
+/** Atividades e vínculos de busca saem pelo ON DELETE CASCADE. */
+export function removeSamples(db: HelixDb, userId: string) {
+  return db.transaction((tx) => ({
+    leads: tx.delete(leads).where(and(eq(leads.userId, userId), eq(leads.isSample, true))).returning({ id: leads.id }).all().length,
+    searches: tx.delete(searches).where(and(eq(searches.userId, userId), eq(searches.isSample, true))).returning({ id: searches.id }).all().length,
+  }));
 }
-
-if (process.argv.includes('--clean')) clean();
-else main();
