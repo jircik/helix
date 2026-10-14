@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/jircik/helix/actions/workflows/ci.yml/badge.svg)](https://github.com/jircik/helix/actions/workflows/ci.yml) **[helix.jircik.dev](https://helix.jircik.dev)**
 
-Helix is a geographic prospecting CRM: it finds businesses on Google Maps that don't have their own website, ranks them, and tracks outreach through a pipeline. Multi-user with email/password auth, per-account data isolation, and a daily Google API quota with atomic reservation. Next.js 16, SQLite, Drizzle, Better Auth.
+CRM de prospecção geográfica: encontra no Google Maps estabelecimentos sem site próprio, classifica cada um e acompanha o contato num pipeline. Multiusuário, com login por e-mail e senha, dados isolados por conta e cota diária da API do Google com reserva atômica. Next.js 16, SQLite, Drizzle e Better Auth.
 
 <!-- GIF: docs/media/helix.gif (gravado após o deploy) -->
 
@@ -14,12 +14,13 @@ A classificação automática é: quente sem URL, morno com rede social/marketpl
 
 ## Fluxo
 
-- **Visão geral:** temperaturas, pendências, próximas ações e histórico de buscas.
-- **Explorar:** mapa com seleção sincronizada e botão **Fazer prospecção**. Texto, tipo, nota, limite, temperatura, telefone, situação e quantidade de avaliações ficam no modal, que mostra a cota do dia.
-- **Leads:** busca textual por nome, endereço ou notas, filtros em modal, paginação, detalhe, exclusão e CSV da seleção completa.
-- **Pipeline:** movimentação por arraste ou seletor, com registro automático na timeline.
-- **Configurações:** etapas do funil (criação, nome, cor, tipo aberta/ganho/perdido, ordem e exclusão com destino explícito dos leads) e dados de exemplo.
-- **Conta:** cadastro e login com e-mail e senha; cada conta enxerga apenas os próprios dados.
+- **Landing** (`/`): apresentação pública; quem já entrou vai direto para a visão geral.
+- **Visão geral** (`/dashboard`): temperaturas, pendências, próximas ações e histórico de buscas.
+- **Explorar** (`/explore`): mapa com seleção sincronizada e botão **Fazer prospecção**. Texto, tipo, nota, limite, temperatura, telefone, situação e quantidade de avaliações ficam no modal, que mostra a cota do dia.
+- **Leads** (`/leads`): busca textual por nome, endereço ou notas, filtros em modal, paginação, detalhe, exclusão e CSV da seleção completa.
+- **Pipeline** (`/pipeline`): movimentação por arraste ou seletor, com registro automático na timeline.
+- **Configurações** (`/settings`): etapas do funil (criação, nome, cor, tipo aberta/ganho/perdido, ordem e exclusão com destino explícito dos leads) e dados de exemplo.
+- **Conta** (`/login`, `/signup`, `/settings/account`): cadastro e login com e-mail e senha; cada conta enxerga apenas os próprios dados.
 - **Dados de exemplo:** 60 leads fictícios por usuário para explorar o app sem gastar a cota do Google; podem ser gerados e removidos a qualquer momento.
 
 ## Stack
