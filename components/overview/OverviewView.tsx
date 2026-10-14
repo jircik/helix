@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { Lead, Search, Temperature } from '@/lib/db/schema';
 import { apiGet } from '@/lib/api/client';
 import { EmptyWorkspace } from '@/components/samples/EmptyWorkspace';
+import { ROUTES } from '@/lib/routes';
 
 interface Overview {
   porTemperatura: Record<Temperature, number>;
@@ -84,7 +85,7 @@ export function OverviewView() {
       <section className="panel" style={{ marginTop: 24 }}>
         <div className="panel-head">
           <h2 style={{ margin: 0, fontSize: 13 }}>Últimas buscas</h2>
-          <Link className="mono" href="/explorar">Nova busca</Link>
+          <Link className="mono" href={ROUTES.explore}>Nova busca</Link>
         </div>
         {data.ultimasBuscas.length === 0 ? (
           <p className="empty">Nenhuma busca ainda.</p>

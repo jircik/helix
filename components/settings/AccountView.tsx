@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { authClient } from '@/lib/auth/client';
 import { authErrorMessage } from '@/lib/auth/messages';
+import { ROUTES } from '@/lib/routes';
 
 type Feedback = { kind: 'ok' | 'erro'; text: string } | null;
 
@@ -53,7 +54,7 @@ export function AccountView({ user }: { user: { name: string; email: string } })
 
   async function sair() {
     try { await authClient.signOut(); } catch { /* segue para a tela de entrada mesmo assim */ }
-    router.replace('/entrar');
+    router.replace(ROUTES.login);
     router.refresh();
   }
 

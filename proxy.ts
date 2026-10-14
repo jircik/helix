@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSessionCookie } from 'better-auth/cookies';
+import { ROUTES } from '@/lib/routes';
 
-const PUBLIC_PAGES = ['/entrar', '/criar-conta'];
+const PUBLIC_PAGES: string[] = [ROUTES.login, ROUTES.signup];
 
 /**
  * Checagem otimista: só olha se o cookie existe, sem tocar no banco.
@@ -10,7 +11,7 @@ const PUBLIC_PAGES = ['/entrar', '/criar-conta'];
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   if (PUBLIC_PAGES.includes(pathname) || getSessionCookie(request)) return NextResponse.next();
-  const url = new URL('/entrar', request.url);
+  const url = new URL(ROUTES.login, request.url);
   url.searchParams.set('next', pathname + search);
   return NextResponse.redirect(url);
 }

@@ -1,7 +1,9 @@
+import { ROUTES } from '@/lib/routes';
+
 async function parse<T>(res: Response): Promise<T> {
   if (res.status === 401 && typeof window !== 'undefined') {
     const next = window.location.pathname + window.location.search;
-    window.location.assign('/entrar?next=' + encodeURIComponent(next));
+    window.location.assign(ROUTES.login + '?next=' + encodeURIComponent(next));
     throw new Error('Sua sessão expirou. Entre novamente.');
   }
   let body: unknown;
