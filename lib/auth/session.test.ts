@@ -10,9 +10,9 @@ vi.mock('next/navigation', () => ({ redirect }));
 import { requireUser } from './session';
 
 describe('requireUser', () => {
-  it('cookie presente mas sessão inválida redireciona para /entrar', async () => {
+  it('cookie presente mas sessão inválida redireciona para /login', async () => {
     getSession.mockResolvedValueOnce(null);
-    await expect(requireUser()).rejects.toThrow('redirect:/entrar');
+    await expect(requireUser()).rejects.toThrow('redirect:/login');
   });
 
   it('sessão válida devolve só id, nome e e-mail', async () => {

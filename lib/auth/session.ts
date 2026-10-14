@@ -1,6 +1,7 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getAuth } from './auth';
+import { ROUTES } from '@/lib/routes';
 
 /** Única origem do userId nas rotas: a sessão validada no banco. */
 export async function getSessionUserId(headers: Headers): Promise<string | null> {
@@ -18,6 +19,6 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 /** Para server components: o proxy só vê se o cookie existe; aqui ele é validado de fato. */
 export async function requireUser(): Promise<SessionUser> {
   const current = await getSessionUser();
-  if (!current) redirect('/entrar');
+  if (!current) redirect(ROUTES.login);
   return current;
 }

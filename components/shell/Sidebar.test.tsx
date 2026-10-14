@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { Sidebar } from './Sidebar';
 
 const router = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn() }));
-vi.mock('next/navigation', () => ({ usePathname: () => '/configuracoes/etapa', useRouter: () => router }));
+vi.mock('next/navigation', () => ({ usePathname: () => '/settings/stage', useRouter: () => router }));
 const signOut = vi.hoisted(() => vi.fn(async () => ({ data: {}, error: null })));
 const getSession = vi.hoisted(() => vi.fn(async () => ({ data: null, error: null })));
 vi.mock('@/lib/auth/client', () => ({ authClient: { signOut, getSession } }));
@@ -34,7 +34,7 @@ describe('sidebar recolhível', () => {
     expect(screen.getByText('Ana Souza')).toBeDefined();
     await userEvent.click(screen.getByRole('button', { name: 'Sair' }));
     expect(signOut).toHaveBeenCalled();
-    expect(router.replace).toHaveBeenCalledWith('/entrar');
+    expect(router.replace).toHaveBeenCalledWith('/login');
   });
 
   it('renova a sessão uma vez ao montar', () => {

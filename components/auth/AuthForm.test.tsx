@@ -16,7 +16,7 @@ beforeEach(() => { vi.clearAllMocks(); });
 describe('AuthForm', () => {
   it('entrar envia e-mail e senha e vai para o next', async () => {
     authClient.signIn.email.mockResolvedValue({ data: {}, error: null });
-    render(<AuthForm mode="entrar" next="/leads" />);
+    render(<AuthForm mode="login" next="/leads" />);
     await userEvent.type(screen.getByLabelText('E-mail'), 'ana@teste.dev');
     await userEvent.type(screen.getByLabelText('Senha'), 'senha-segura-1');
     await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
@@ -27,7 +27,7 @@ describe('AuthForm', () => {
 
   it('criar conta pede nome e mostra o erro traduzido', async () => {
     authClient.signUp.email.mockResolvedValue({ data: null, error: { code: 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL', status: 422 } });
-    render(<AuthForm mode="criar-conta" next="/" />);
+    render(<AuthForm mode="signup" next="/dashboard" />);
     await userEvent.type(screen.getByLabelText('Nome'), 'Ana');
     await userEvent.type(screen.getByLabelText('E-mail'), 'ana@teste.dev');
     await userEvent.type(screen.getByLabelText('Senha'), 'senha-segura-1');
@@ -38,13 +38,13 @@ describe('AuthForm', () => {
   });
 
   it('cada tela aponta para a outra preservando o next', () => {
-    render(<AuthForm mode="entrar" next="/pipeline" />);
-    expect(screen.getByRole('link', { name: 'Criar conta' }).getAttribute('href')).toBe('/criar-conta?next=%2Fpipeline');
+    render(<AuthForm mode="login" next="/pipeline" />);
+    expect(screen.getByRole('link', { name: 'Criar conta' }).getAttribute('href')).toBe('/signup?next=%2Fpipeline');
   });
 
   it('falha de rede mostra erro genérico e reabilita o botão', async () => {
     authClient.signIn.email.mockRejectedValue(new Error('network'));
-    render(<AuthForm mode="entrar" next="/" />);
+    render(<AuthForm mode="login" next="/dashboard" />);
     await userEvent.type(screen.getByLabelText('E-mail'), 'ana@teste.dev');
     await userEvent.type(screen.getByLabelText('Senha'), 'senha-segura-1');
     await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));

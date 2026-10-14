@@ -14,7 +14,7 @@ describe('estado vazio', () => {
   it('oferece buscar no Google ou gerar exemplos', async () => {
     api.apiSend.mockResolvedValue({ leads: 60 });
     render(<EmptyWorkspace />);
-    expect(screen.getByRole('link', { name: 'Buscar no Google' }).getAttribute('href')).toBe('/explorar');
+    expect(screen.getByRole('link', { name: 'Buscar no Google' }).getAttribute('href')).toBe('/explore');
     await userEvent.click(screen.getByRole('button', { name: 'Gerar dados de exemplo' }));
     expect(api.apiSend).toHaveBeenCalledWith('/api/samples', 'POST');
     expect(reloadPage).toHaveBeenCalled();

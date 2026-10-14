@@ -6,13 +6,14 @@ import { useEffect, useState } from 'react';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { authClient } from '@/lib/auth/client';
 import { Logo } from '@/components/ui/Logo';
+import { ROUTES } from '@/lib/routes';
 
 const LINKS: { href: string; label: string; icon: IconName }[] = [
-  { href: '/', label: 'Visão geral', icon: 'overview' },
-  { href: '/explorar', label: 'Explorar', icon: 'explore' },
-  { href: '/leads', label: 'Leads', icon: 'leads' },
-  { href: '/pipeline', label: 'Pipeline', icon: 'pipeline' },
-  { href: '/configuracoes', label: 'Configurações', icon: 'settings' },
+  { href: ROUTES.dashboard, label: 'Visão geral', icon: 'overview' },
+  { href: ROUTES.explore, label: 'Explorar', icon: 'explore' },
+  { href: ROUTES.leads, label: 'Leads', icon: 'leads' },
+  { href: ROUTES.pipeline, label: 'Pipeline', icon: 'pipeline' },
+  { href: ROUTES.settings, label: 'Configurações', icon: 'settings' },
 ];
 
 export function Sidebar({ user }: { user: { name: string; email: string } }) {
@@ -26,13 +27,13 @@ export function Sidebar({ user }: { user: { name: string; email: string } }) {
 
   async function sair() {
     try { await authClient.signOut(); } catch { /* segue para a tela de entrada mesmo assim */ }
-    router.replace('/entrar');
+    router.replace(ROUTES.login);
     router.refresh();
   }
 
   return (
     <aside className="sidebar" data-collapsed={collapsed}>
-      <div className="sidebar-heading"><Link className="brand" href="/" aria-label="Helix — início">
+      <div className="sidebar-heading"><Link className="brand" href={ROUTES.dashboard} aria-label="Helix — início">
         {collapsed ? <Logo /> : <span>HELIX</span>}
       </Link>
       <button type="button" className="sidebar-toggle" aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'} aria-expanded={!collapsed} aria-controls="main-navigation" onClick={() => setCollapsed((value) => !value)}>
@@ -45,7 +46,7 @@ export function Sidebar({ user }: { user: { name: string; email: string } }) {
             href={link.href}
             title={collapsed ? link.label : undefined}
             aria-label={link.label}
-            aria-current={pathname === link.href || (link.href !== '/' && pathname.startsWith(link.href + '/')) ? 'page' : undefined}
+            aria-current={pathname === link.href || pathname.startsWith(link.href + '/') ? 'page' : undefined}
           >
             <Icon name={link.icon} /><span className={collapsed ? 'sr-only' : undefined}>{link.label}</span>
           </Link>
